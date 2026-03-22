@@ -3,6 +3,7 @@ package com.marcosdias.miniifood.user.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,12 +16,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private UserService userService;
@@ -33,11 +38,13 @@ class UserServiceTest {
         input.setPassword("123456");
 
         when(userRepository.existsByEmail(input.getEmail())).thenReturn(false);
+        when(passwordEncoder.encode("123456")).thenReturn("encoded-123456");
         when(userRepository.save(any(User.class))).thenReturn(input);
 
         User created = userService.create(input);
 
         assertEquals("marcos@email.com", created.getEmail());
+        verify(passwordEncoder).encode("123456");
         verify(userRepository).save(input);
     }
 
@@ -65,12 +72,14 @@ class UserServiceTest {
         input.setPassword("abcdef");
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(passwordEncoder.encode(eq("abcdef"))).thenReturn("encoded-abcdef");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         User updated = userService.update(1L, input);
 
         assertEquals("New", updated.getName());
         assertEquals("old@email.com", updated.getEmail());
+        assertEquals("encoded-abcdef", updated.getPassword());
     }
 }
 

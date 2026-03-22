@@ -5,6 +5,7 @@ import com.marcosdias.miniifood.user.repository.UserRepository;
 import com.marcosdias.miniifood.user.service.exception.EmailAlreadyInUseException;
 import com.marcosdias.miniifood.user.service.exception.ResourceNotFoundException;
 import java.util.List;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,9 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional(readOnly = true)
@@ -32,6 +35,7 @@ public class UserService {
         if (userRepository.existsByEmail(user.getEmail())) {
             throw new EmailAlreadyInUseException("Email already in use: " + user.getEmail());
         }
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         return userRepository.save(user);
     }
 
@@ -45,7 +49,7 @@ public class UserService {
 
         user.setName(userData.getName());
         user.setEmail(userData.getEmail());
-        user.setPassword(userData.getPassword());
+        user.setPassword(passwordEncoder.encode(userData.getPassword()));
 
         return userRepository.save(user);
     }

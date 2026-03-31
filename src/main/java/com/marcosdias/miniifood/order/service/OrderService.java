@@ -92,6 +92,17 @@ public class OrderService {
     public Order updateStatus(Long orderId, OrderStatus newStatus) {
         log.info("Updating order: {} status to: {}", orderId, newStatus);
         Order order = findById(orderId);
+
+        if (newStatus == null) {
+            throw new IllegalArgumentException("New status must not be null");
+        }
+
+        if (!order.getStatus().canTransitionTo(newStatus)) {
+            throw new IllegalStateException(
+                    "Invalid status transition from " + order.getStatus() + " to " + newStatus
+            );
+        }
+
         order.setStatus(newStatus);
         return orderRepository.save(order);
     }

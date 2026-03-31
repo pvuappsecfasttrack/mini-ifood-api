@@ -200,11 +200,26 @@ class OrderServiceTest {
                 new CreateOrderItemServiceRequest(testProduct.getId(), 1)
         );
         Order createdOrder = orderService.createOrder(testUser.getId(), items);
+        orderService.updateStatus(createdOrder.getId(), OrderStatus.CONFIRMED);
+        orderService.updateStatus(createdOrder.getId(), OrderStatus.PREPARING);
         orderService.updateStatus(createdOrder.getId(), OrderStatus.OUT_FOR_DELIVERY);
 
         assertThatThrownBy(() -> orderService.cancelOrder(createdOrder.getId()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Cannot cancel order");
+    }
+
+    @Test
+    @DisplayName("Should throw exception when order status transition is invalid")
+    void testUpdateOrderStatusInvalidTransition() {
+        List<CreateOrderItemServiceRequest> items = List.of(
+                new CreateOrderItemServiceRequest(testProduct.getId(), 1)
+        );
+        Order createdOrder = orderService.createOrder(testUser.getId(), items);
+
+        assertThatThrownBy(() -> orderService.updateStatus(createdOrder.getId(), OrderStatus.DELIVERED))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Invalid status transition");
     }
 }
 

@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.marcosdias.miniifood.user.domain.User;
 import com.marcosdias.miniifood.user.repository.UserRepository;
 import com.marcosdias.miniifood.user.service.exception.EmailAlreadyInUseException;
+import com.marcosdias.miniifood.user.service.exception.ResourceNotFoundException;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -80,6 +81,44 @@ class UserServiceTest {
         assertEquals("New", updated.getName());
         assertEquals("old@email.com", updated.getEmail());
         assertEquals("encoded-abcdef", updated.getPassword());
+    }
+
+    @Test
+    void shouldThrowWhenUpdatingToEmailAlreadyUsedByAnotherUser() {
+        User existing = new User();
+        existing.setId(1L);
+        existing.setName("Old");
+        existing.setEmail("old@email.com");
+        existing.setPassword("123456");
+
+        User input = new User();
+        input.setName("New");
+        input.setEmail("new@email.com");
+        input.setPassword("abcdef");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(userRepository.existsByEmail("new@email.com")).thenReturn(true);
+
+        assertThrows(EmailAlreadyInUseException.class, () -> userService.update(1L, input));
+    }
+
+    @Test
+    void shouldDeleteExistingUser() {
+        User existing = new User();
+        existing.setId(1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        userService.delete(1L);
+
+        verify(userRepository).delete(existing);
+    }
+
+    @Test
+    void shouldThrowWhenDeletingNonExistingUser() {
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> userService.delete(99L));
     }
 }
 

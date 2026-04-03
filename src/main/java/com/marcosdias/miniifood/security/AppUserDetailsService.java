@@ -27,5 +27,7 @@ public class AppUserDetailsService implements UserDetailsService {
             .authorities("ROLE_USER")
             .build();
     }
+
+
 }
 

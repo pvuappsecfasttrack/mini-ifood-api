@@ -1,10 +1,10 @@
 # Mini iFood API
 
-REST API for order management with Spring Boot, JWT authentication, and PostgreSQL.
+REST API for order management with Spring Boot, JWT authentication, PostgreSQL, and Redis caching.
 
 ## Setup
 
-**Requirements**: JDK 21+, Maven 3.9+, PostgreSQL 15+
+**Requirements**: JDK 21+, Maven 3.9+, PostgreSQL 15+, Redis 7+
 
 **Clone**:
 ```bash
@@ -20,6 +20,8 @@ $env:DB_NAME="mini_ifood"
 $env:DB_USER="postgres"
 $env:DB_PASSWORD="your_password"
 $env:JWT_SECRET="your-secret-key-min-32-chars"
+$env:REDIS_HOST="localhost"
+$env:REDIS_PORT="6379"
 ```
 
 **Run**:
@@ -40,6 +42,7 @@ POST /api/auth/login
 ```
 GET/POST/PUT/DELETE /api/users
 GET/POST/PUT/DELETE /api/products?page=0&size=10
+GET/POST/PUT/DELETE /api/v1/orders
 ```
 
 See Swagger: `http://localhost:8080/swagger-ui.html`
@@ -51,6 +54,7 @@ See Swagger: `http://localhost:8080/swagger-ui.html`
 | Java | 21 |
 | Spring Boot | 4.0.4 |
 | PostgreSQL | 15+ |
+| Redis | 7+ |
 | JWT | JJWT 0.12.6 |
 | Build | Maven 3.9+ |
 
@@ -61,6 +65,8 @@ src/main/java/com/marcosdias/miniifood/
 ├── auth/       Authentication & login
 ├── security/   JWT & Spring Security
 ├── product/    Product CRUD
+├── config/      Cache configuration
+├── order/      Order lifecycle
 ├── user/       User management
 └── MiniIfoodApiApplication.java
 ```
@@ -74,9 +80,9 @@ src/main/java/com/marcosdias/miniifood/
 - [x] Swagger/OpenAPI documentation
 - [x] Unit & integration tests (23 tests)
 - [x] GitHub Actions CI/CD
+- [x] Redis cache for product listing
 - [ ] Orders (Phase 6)
 - [ ] Payments (Phase 8)
-- [ ] Redis cache (Phase 9)
 - [ ] Docker (Phase 11)
 
 ## Testing
@@ -95,6 +101,7 @@ src/main/java/com/marcosdias/miniifood/
 - Swagger annotations (API documentation)
 - SLF4J logging
 - Spring Data JPA + Hibernate
+- Spring Cache + Redis
 
 ## License
 

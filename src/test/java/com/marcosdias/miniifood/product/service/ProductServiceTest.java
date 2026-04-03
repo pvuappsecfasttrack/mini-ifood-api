@@ -3,6 +3,7 @@ package com.marcosdias.miniifood.product.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -85,6 +86,47 @@ class ProductServiceTest {
         when(productRepository.findById(999L)).thenReturn(java.util.Optional.empty());
 
         assertThrows(ProductNotFoundException.class, () -> productService.findById(999L));
+    }
+
+    @Test
+    void shouldThrowWhenUpdatingToDuplicatedName() {
+        Product existing = Product.builder()
+            .id(1L)
+            .name("Burger")
+            .description("Old description")
+            .price(BigDecimal.valueOf(25.90))
+            .quantityAvailable(100)
+            .build();
+
+        Product input = Product.builder()
+            .name("Pizza")
+            .description("New description")
+            .price(BigDecimal.valueOf(35.90))
+            .quantityAvailable(50)
+            .build();
+
+        when(productRepository.findById(1L)).thenReturn(java.util.Optional.of(existing));
+        when(productRepository.existsByNameIgnoreCase("Pizza")).thenReturn(true);
+
+        assertThrows(ProductAlreadyExistsException.class, () -> productService.update(1L, input));
+        verify(productRepository, never()).save(any(Product.class));
+    }
+
+    @Test
+    void shouldDeleteExistingProduct() {
+        Product existing = Product.builder().id(1L).name("Burger").build();
+        when(productRepository.findById(1L)).thenReturn(java.util.Optional.of(existing));
+
+        productService.delete(1L);
+
+        verify(productRepository).delete(existing);
+    }
+
+    @Test
+    void shouldThrowWhenDeletingNonExistingProduct() {
+        when(productRepository.findById(1L)).thenReturn(java.util.Optional.empty());
+
+        assertThrows(ProductNotFoundException.class, () -> productService.delete(1L));
     }
 }
 

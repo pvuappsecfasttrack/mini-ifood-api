@@ -1,18 +1,70 @@
 # Mini iFood API
 
-REST API for order management with Spring Boot, JWT authentication, PostgreSQL, and Redis caching.
+Portfolio-grade REST API for food ordering, built with Spring Boot, JWT authentication, PostgreSQL, Redis caching, and automated tests.
 
-## Setup
+## Overview
 
-**Requirements**: JDK 21+, Maven 3.9+, PostgreSQL 15+, Redis 7+
+This project simulates a real production backend with:
 
-**Clone**:
-```bash
-git clone https://github.com/203marcos/mini-ifood-api.git
-cd mini-ifood-api
+- Layered architecture by feature (`auth`, `user`, `product`, `order`, `payment`)
+- Stateless authentication and authorization using Spring Security + JWT
+- Order lifecycle with status transition rules
+- Caching strategy for product listing with Redis
+- Automated test suite (unit + integration + security scenarios)
+
+## Tech Stack
+
+- Java 21
+- Spring Boot 4.0.4
+- Spring Security (JWT)
+- Spring Data JPA + Hibernate
+- Flyway
+- PostgreSQL
+- Redis
+- OpenAPI / Swagger
+- Maven
+- GitHub Actions
+
+## Project Structure
+
+```text
+src/main/java/com/marcosdias/miniifood/
+  auth/       Authentication (login/register)
+  user/       User management
+  product/    Product CRUD + cache integration
+  order/      Order aggregate and status flow
+  payment/    Mock payment flow
+  security/   JWT service, filter, security configuration
+  config/     Infrastructure configuration (cache)
 ```
 
-**Environment Variables** (PowerShell):
+## Main Features
+
+- User registration and login
+- JWT token issuance and request authentication
+- Product CRUD with pagination
+- Order creation, listing, status updates, and cancellation rules
+- Role-based access on admin order operations
+- Mock payment processing integrated with order status
+- Redis cache on product listing
+- Database versioning with Flyway migrations
+
+## API Documentation
+
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+
+## Local Setup
+
+Requirements:
+
+- JDK 21+
+- Maven 3.9+
+- PostgreSQL 15+
+- Redis 7+
+
+Set environment variables (PowerShell):
+
 ```powershell
 $env:DB_HOST="localhost"
 $env:DB_PORT="5433"
@@ -24,90 +76,51 @@ $env:REDIS_HOST="localhost"
 $env:REDIS_PORT="6379"
 ```
 
-**Run**:
-```bash
-.\mvnw.cmd test          # Run tests
-.\mvnw.cmd spring-boot:run  # Start app (http://localhost:8080)
+Run tests and application:
+
+```powershell
+.\mvnw.cmd test
+.\mvnw.cmd spring-boot:run
 ```
 
-## API
+## Test Strategy
 
-**Public**:
-```
-POST /api/auth/register
-POST /api/auth/login
-```
+Current suite includes:
 
-**Protected** (Bearer token required):
-```
-GET/POST/PUT/DELETE /api/users
-GET/POST/PUT/DELETE /api/products?page=0&size=10
-GET/POST/PUT/DELETE /api/v1/orders
-```
+- Unit tests for service/business rules
+- Integration tests for service and repository behavior
+- Security-focused tests (JWT, filter, method authorization)
+- HTTP-level integration tests for `OrderController` using `MockMvc`
 
-See Swagger: `http://localhost:8080/swagger-ui.html`
+Useful commands:
 
-## Stack
-
-| Component | Version |
-|-----------|---------|
-| Java | 21 |
-| Spring Boot | 4.0.4 |
-| PostgreSQL | 15+ |
-| Redis | 7+ |
-| JWT | JJWT 0.12.6 |
-| Build | Maven 3.9+ |
-
-## Architecture
-
-```
-src/main/java/com/marcosdias/miniifood/
-├── auth/       Authentication & login
-├── security/   JWT & Spring Security
-├── product/    Product CRUD
-├── config/      Cache configuration
-├── order/      Order lifecycle
-├── user/       User management
-└── MiniIfoodApiApplication.java
+```powershell
+.\mvnw.cmd test
+.\mvnw.cmd test -Dtest=OrderControllerIntegrationTest
 ```
 
-## Features
+### Optional Advanced: Testcontainers
 
-- [x] User registration & JWT login
-- [x] Spring Security + BCrypt
-- [x] Product CRUD with pagination
-- [x] PostgreSQL + Flyway migrations
-- [x] Swagger/OpenAPI documentation
-- [x] Unit & integration tests (23 tests)
-- [x] GitHub Actions CI/CD
-- [x] Redis cache for product listing
-- [ ] Orders (Phase 6)
-- [ ] Payments (Phase 8)
-- [ ] Docker (Phase 11)
+An optional Testcontainers baseline is included for PostgreSQL + Redis smoke testing.
+It only runs when `RUN_TESTCONTAINERS=true`.
 
-## Testing
-
-```bash
-.\mvnw.cmd test                    # All tests
-.\mvnw.cmd test -Dtest=AuthServiceTest  # Single class
+```powershell
+$env:RUN_TESTCONTAINERS="true"
+.\mvnw.cmd test -Dtest=ContainersSmokeTest
 ```
 
-## Development
+## Profiles
 
-**Profiles**: `dev` (PostgreSQL) | `test` (H2) | `prod` (PostgreSQL strict)
+- `dev`: PostgreSQL + Redis
+- `test`: H2 in-memory (fast CI tests)
+- `prod`: PostgreSQL strict runtime config
+- `tc`: Testcontainers support profile
 
-**Key technologies**:
-- Lombok (reduced boilerplate)
-- Swagger annotations (API documentation)
-- SLF4J logging
-- Spring Data JPA + Hibernate
-- Spring Cache + Redis
+## CI
+
+GitHub Actions workflow runs tests on pushes and pull requests for `main`, `develop`, and `feature/**` branches.
 
 ## License
 
-MIT — See [LICENSE](LICENSE)
-
----
-
-Marcos | [GitHub](https://github.com/203marcos) | March 2026
+This project is licensed under the MIT License. See `LICENSE`.
 

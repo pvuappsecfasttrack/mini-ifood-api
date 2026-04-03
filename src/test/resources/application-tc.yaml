@@ -1,0 +1,16 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  cache:
+    type: redis
+
+app:
+  jwt:
+    secret: test-secret-key-with-at-least-32-chars
+    expiration-minutes: 60
+

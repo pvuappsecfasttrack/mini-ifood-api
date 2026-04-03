@@ -221,5 +221,33 @@ class OrderServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Invalid status transition");
     }
+
+    @Test
+    @DisplayName("Should throw exception when trying to move from CONFIRMED directly to DELIVERED")
+    void testInvalidTransitionConfirmedToDelivered() {
+        List<CreateOrderItemServiceRequest> items = List.of(
+                new CreateOrderItemServiceRequest(testProduct.getId(), 1)
+        );
+        Order createdOrder = orderService.createOrder(testUser.getId(), items);
+        orderService.updateStatus(createdOrder.getId(), OrderStatus.CONFIRMED);
+
+        assertThatThrownBy(() -> orderService.updateStatus(createdOrder.getId(), OrderStatus.DELIVERED))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Invalid status transition");
+    }
+
+    @Test
+    @DisplayName("Should throw exception when trying to move from CANCELLED back to PENDING")
+    void testInvalidTransitionCancelledToPending() {
+        List<CreateOrderItemServiceRequest> items = List.of(
+                new CreateOrderItemServiceRequest(testProduct.getId(), 1)
+        );
+        Order createdOrder = orderService.createOrder(testUser.getId(), items);
+        orderService.cancelOrder(createdOrder.getId());
+
+        assertThatThrownBy(() -> orderService.updateStatus(createdOrder.getId(), OrderStatus.PENDING))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Invalid status transition");
+    }
 }
 

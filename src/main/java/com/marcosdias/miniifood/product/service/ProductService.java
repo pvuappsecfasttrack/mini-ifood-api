@@ -5,11 +5,15 @@ import com.marcosdias.miniifood.product.repository.ProductRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
+@CacheConfig(cacheNames = "products")
 public class ProductService {
 
     private final ProductRepository productRepository;
@@ -19,6 +23,7 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable
     public Page<Product> findAll(Pageable pageable) {
         log.debug("Finding all products with pageable: {}", pageable);
         return productRepository.findAll(pageable);
@@ -32,6 +37,7 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(allEntries = true)
     public Product create(Product product) {
         if (productRepository.existsByNameIgnoreCase(product.getName())) {
             log.warn("Product name already exists: {}", product.getName());
@@ -43,6 +49,7 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(allEntries = true)
     public Product update(Long id, Product productData) {
         log.debug("Updating product with id: {}", id);
         Product product = findById(id);
@@ -63,6 +70,7 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(allEntries = true)
     public void delete(Long id) {
         log.debug("Deleting product with id: {}", id);
         Product product = findById(id);

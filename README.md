@@ -64,12 +64,14 @@ Requirements:
 
 ## Quick Start
 
-Choose one runtime flow:
+Run everything with Docker (app + PostgreSQL + Redis + Prometheus + Grafana):
 
-1. **Recommended for development:** app on host + PostgreSQL/Redis in Docker
-2. **Containerized app flow:** app + PostgreSQL + Redis all in Docker
+```powershell
+docker compose up -d --build
+docker compose ps
+```
 
-Set environment variables (PowerShell):
+Optional environment overrides (PowerShell):
 
 ```powershell
 $env:DB_HOST="localhost"
@@ -82,24 +84,11 @@ $env:REDIS_HOST="localhost"
 $env:REDIS_PORT="6379"
 ```
 
-Start infrastructure (PostgreSQL + Redis):
-
-```powershell
-docker compose up -d
-docker compose ps
-```
-
-Run tests and application:
+If you prefer running only infrastructure with Docker and app on host:
 
 ```powershell
 .\mvnw.cmd test
 .\mvnw.cmd spring-boot:run
-```
-
-Run full stack in Docker (app + infra):
-
-```powershell
-docker compose up --build app
 ```
 
 Stop infrastructure:
@@ -164,14 +153,7 @@ This project already exposes metrics through `http://localhost:8080/actuator/pro
 - `Grafana` reads data from Prometheus and renders charts/dashboards.
 
 Most teams run both with Docker because setup is faster and reproducible.
-You can install Grafana/Prometheus directly on your OS, but Docker is the most common local-dev setup.
-
-Start monitoring stack:
-
-```powershell
-docker compose -f docker-compose.monitoring.yml up -d
-docker compose -f docker-compose.monitoring.yml ps
-```
+In this project they are already part of `docker-compose.yml`.
 
 Open:
 
@@ -186,7 +168,7 @@ Grafana data source configuration:
 Stop monitoring stack:
 
 ```powershell
-docker compose -f docker-compose.monitoring.yml down
+docker compose down
 ```
 
 ## CI

@@ -23,13 +23,15 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable
+    @Cacheable(key = "#pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort",
+               unless = "#result.isEmpty()")
     public Page<Product> findAll(Pageable pageable) {
         log.debug("Finding all products with pageable: {}", pageable);
         return productRepository.findAll(pageable);
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(key = "#id", unless = "#result == null")
     public Product findById(Long id) {
         log.debug("Finding product with id: {}", id);
         return productRepository.findById(id)

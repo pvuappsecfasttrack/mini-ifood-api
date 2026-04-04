@@ -30,3 +30,22 @@ app:
     secret: ${JWT_SECRET:change-this-secret-key-with-at-least-32-characters}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+

@@ -128,6 +128,7 @@ Current suite includes:
 - Unit tests for service/business rules
 - Integration tests for service and repository behavior
 - Security-focused tests (JWT, filter, method authorization)
+- HTTP-level tests for `AuthController` and `ProductController` using `@WebMvcTest` + `MockMvc`
 - HTTP-level integration tests for `OrderController` using `MockMvc`
 
 Useful commands:
@@ -135,6 +136,7 @@ Useful commands:
 ```powershell
 .\mvnw.cmd test
 .\mvnw.cmd test -Dtest=OrderControllerIntegrationTest
+.\mvnw.cmd test "-Dtest=AuthControllerMvcTest,ProductControllerMvcTest"
 ```
 
 ### Optional Advanced: Testcontainers

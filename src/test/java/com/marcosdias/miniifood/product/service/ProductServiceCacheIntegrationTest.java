@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.reset;
 
 import com.marcosdias.miniifood.product.domain.Product;
+import com.marcosdias.miniifood.product.ProductCacheConstants;
 import com.marcosdias.miniifood.product.repository.ProductRepository;
 import com.marcosdias.miniifood.product.web.dto.ProductPageResponse;
 import java.math.BigDecimal;
@@ -38,7 +39,7 @@ class ProductServiceCacheIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        var productsCache = cacheManager.getCache("products");
+        var productsCache = cacheManager.getCache(ProductCacheConstants.PRODUCTS_CACHE);
         if (productsCache != null) {
             productsCache.clear();
         }

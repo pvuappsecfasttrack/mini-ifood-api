@@ -1,6 +1,7 @@
 package com.marcosdias.miniifood.product.service;
 
 import com.marcosdias.miniifood.product.domain.Product;
+import com.marcosdias.miniifood.product.ProductCacheConstants;
 import com.marcosdias.miniifood.product.repository.ProductRepository;
 import com.marcosdias.miniifood.product.web.ProductMapper;
 import com.marcosdias.miniifood.product.web.dto.ProductPageResponse;
@@ -15,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
-@CacheConfig(cacheNames = "products")
+@CacheConfig(cacheNames = ProductCacheConstants.PRODUCTS_CACHE)
 public class ProductService {
 
     private final ProductRepository productRepository;

@@ -156,6 +156,39 @@ $env:RUN_TESTCONTAINERS="true"
 - `prod`: PostgreSQL strict runtime config
 - `tc`: Testcontainers support profile
 
+## Monitoring (Prometheus + Grafana)
+
+This project already exposes metrics through `http://localhost:8080/actuator/prometheus`.
+
+- `Prometheus` collects and stores metrics over time (it does not render dashboards).
+- `Grafana` reads data from Prometheus and renders charts/dashboards.
+
+Most teams run both with Docker because setup is faster and reproducible.
+You can install Grafana/Prometheus directly on your OS, but Docker is the most common local-dev setup.
+
+Start monitoring stack:
+
+```powershell
+docker compose -f docker-compose.monitoring.yml up -d
+docker compose -f docker-compose.monitoring.yml ps
+```
+
+Open:
+
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3000` (default login `admin` / `admin`)
+
+Grafana data source configuration:
+
+- Type: `Prometheus`
+- URL: `http://prometheus:9090`
+
+Stop monitoring stack:
+
+```powershell
+docker compose -f docker-compose.monitoring.yml down
+```
+
 ## CI
 
 GitHub Actions workflow runs tests on pushes and pull requests for `main`, `develop`, and `feature/**` branches.

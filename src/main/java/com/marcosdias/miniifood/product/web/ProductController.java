@@ -3,18 +3,15 @@ package com.marcosdias.miniifood.product.web;
 import com.marcosdias.miniifood.product.domain.Product;
 import com.marcosdias.miniifood.product.service.ProductService;
 import com.marcosdias.miniifood.product.web.dto.CreateProductRequest;
+import com.marcosdias.miniifood.product.web.dto.ProductPageResponse;
 import com.marcosdias.miniifood.product.web.dto.ProductResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -40,15 +37,12 @@ public class ProductController {
     @GetMapping
     @Operation(summary = "List all products", description = "Get paginated list of all products")
     @ApiResponse(responseCode = "200", description = "List of products")
-    public ResponseEntity<Page<ProductResponse>> findAll(
-        @PageableDefault(size = 10, sort = "name", direction = Sort.Direction.ASC)
+    public ResponseEntity<ProductPageResponse> findAll(
+        @PageableDefault(size = 10)
         @Parameter(description = "Pagination parameters")
         Pageable pageable) {
 
-        Page<ProductResponse> products = productService.findAll(pageable)
-            .map(this::toResponse);
-
-        return ResponseEntity.ok(products);
+        return ResponseEntity.ok(productService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
@@ -134,5 +128,6 @@ public class ProductController {
             product.getUpdatedAt()
         );
     }
+
 }
 

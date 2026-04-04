@@ -2,6 +2,8 @@ package com.marcosdias.miniifood.product.service;
 
 import com.marcosdias.miniifood.product.domain.Product;
 import com.marcosdias.miniifood.product.repository.ProductRepository;
+import com.marcosdias.miniifood.product.web.dto.ProductPageResponse;
+import com.marcosdias.miniifood.product.web.dto.ProductResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,15 +25,24 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(key = "#pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort",
-               unless = "#result.isEmpty()")
-    public Page<Product> findAll(Pageable pageable) {
+    @Cacheable(key = "#pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort")
+    public ProductPageResponse findAll(Pageable pageable) {
         log.debug("Finding all products with pageable: {}", pageable);
-        return productRepository.findAll(pageable);
+        Page<Product> page = productRepository.findAll(pageable);
+
+        return new ProductPageResponse(
+            page.getContent().stream().map(this::toResponse).toList(),
+            page.getNumber(),
+            page.getSize(),
+            page.getTotalElements(),
+            page.getTotalPages(),
+            page.isFirst(),
+            page.isLast(),
+            page.isEmpty()
+        );
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(key = "#id", unless = "#result == null")
     public Product findById(Long id) {
         log.debug("Finding product with id: {}", id);
         return productRepository.findById(id)
@@ -78,6 +89,18 @@ public class ProductService {
         Product product = findById(id);
         productRepository.delete(product);
         log.info("Product deleted: {}", id);
+    }
+
+    private ProductResponse toResponse(Product product) {
+        return new ProductResponse(
+            product.getId(),
+            product.getName(),
+            product.getDescription(),
+            product.getPrice(),
+            product.getQuantityAvailable(),
+            product.getCreatedAt(),
+            product.getUpdatedAt()
+        );
     }
 }
 

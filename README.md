@@ -60,8 +60,7 @@ Requirements:
 
 - JDK 21+
 - Maven 3.9+
-- PostgreSQL 15+
-- Redis 7+
+- Docker + Docker Compose
 
 Set environment variables (PowerShell):
 
@@ -76,11 +75,36 @@ $env:REDIS_HOST="localhost"
 $env:REDIS_PORT="6379"
 ```
 
+Start infrastructure (PostgreSQL + Redis):
+
+```powershell
+docker compose up -d
+docker compose ps
+```
+
 Run tests and application:
 
 ```powershell
 .\mvnw.cmd test
 .\mvnw.cmd spring-boot:run
+```
+
+Stop infrastructure:
+
+```powershell
+docker compose down
+```
+
+## Postman Collection
+
+- Collection file: `MiniIfoodAPI.postman_collection.json`
+- Import this file in Postman to test auth and product cache flow
+- Run `Auth -> Login User` first to populate `auth_token`
+
+If cache data gets incompatible after serializer changes:
+
+```powershell
+docker exec -it mini-ifood-cache redis-cli FLUSHALL
 ```
 
 ## Test Strategy

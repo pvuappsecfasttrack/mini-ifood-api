@@ -23,6 +23,7 @@
         condition: service_healthy
     networks:
       - mini-ifood-network
+    restart: unless-stopped
 
   postgres:
     image: postgres:16-alpine
@@ -43,7 +44,7 @@
       timeout: 5s
       retries: 5
   redis:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: mini-ifood-cache
     ports:
       - "${REDIS_PORT:-6379}:6379"
@@ -57,11 +58,48 @@
       interval: 10s
       timeout: 5s
       retries: 5
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mini-ifood-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      app:
+        condition: service_started
+    networks:
+      - mini-ifood-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mini-ifood-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - mini-ifood-network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
     driver: local
   redis_data:
     driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
 networks:
   mini-ifood-network:
     driver: bridge

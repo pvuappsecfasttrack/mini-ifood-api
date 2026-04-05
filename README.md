@@ -71,6 +71,12 @@ docker compose up -d --build
 docker compose ps
 ```
 
+Create a local environment file once (recommended):
+
+```powershell
+Copy-Item .env.example .env
+```
+
 Optional environment overrides (PowerShell):
 
 ```powershell
@@ -159,6 +165,17 @@ Open:
 
 - Prometheus: `http://localhost:9090`
 - Grafana: `http://localhost:3000` (default login `admin` / `admin`)
+
+Prometheus targets expected as `UP`:
+
+- `app:8080`
+- `postgres-exporter:9187`
+- `redis-exporter:9121`
+
+Grafana dashboards to import:
+
+- PostgreSQL Exporter: `9628`
+- Redis Exporter: `763`
 
 Grafana data source configuration:
 

@@ -12,6 +12,17 @@ This project simulates a real production backend with:
 - Caching strategy for product listing with Redis
 - Automated test suite (unit + integration + security scenarios)
 
+## Why This Project
+
+This API was designed to demonstrate practical backend skills expected in production projects:
+
+- Clean domain separation and maintainable package structure
+- Security-first approach with JWT-based stateless authentication
+- Reliable persistence with PostgreSQL and Flyway migrations
+- Performance optimization with Redis caching
+- Test strategy across unit, integration, and HTTP/security layers
+- Operational readiness through metrics and dashboards
+
 ## Tech Stack
 
 - Java 21

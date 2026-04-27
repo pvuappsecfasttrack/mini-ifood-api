@@ -1,207 +1,231 @@
 # Mini iFood API
 
-Portfolio-grade REST API for food ordering, built with Spring Boot, JWT authentication, PostgreSQL, Redis caching, and automated tests.
+Mini iFood API is a portfolio-ready REST backend built with Java 21 and Spring Boot.
+It demonstrates a production-style stack with JWT security, PostgreSQL, Redis caching,
+Flyway migrations, automated tests, and Docker-based observability.
 
-## Overview
+## Why this project stands out
 
-This project simulates a real production backend with:
+This repository was designed to show the kind of backend work expected in a real product team:
 
-- Layered architecture by feature (`auth`, `user`, `product`, `order`, `payment`)
-- Stateless authentication and authorization using Spring Security + JWT
-- Order lifecycle with status transition rules
-- Caching strategy for product listing with Redis
-- Automated test suite (unit + integration + security scenarios)
+- Clean separation by domain (`auth`, `user`, `product`, `order`, `payment`, `security`, `config`)
+- Stateless authentication with Spring Security + JWT
+- Real persistence with PostgreSQL and Flyway
+- Product listing cache backed by Redis
+- Tests across unit, integration, security, and HTTP layers
+- Monitoring with Prometheus and Grafana
+- One-command local startup with Docker Compose
 
-## Why This Project
-
-This API was designed to demonstrate practical backend skills expected in production projects:
-
-- Clean domain separation and maintainable package structure
-- Security-first approach with JWT-based stateless authentication
-- Reliable persistence with PostgreSQL and Flyway migrations
-- Performance optimization with Redis caching
-- Test strategy across unit, integration, and HTTP/security layers
-- Operational readiness through metrics and dashboards
-
-## Tech Stack
+## Tech stack
 
 - Java 21
 - Spring Boot 4.0.4
-- Spring Security (JWT)
+- Spring Security + JWT
 - Spring Data JPA + Hibernate
 - Flyway
 - PostgreSQL
 - Redis
+- Micrometer + Prometheus
+- Grafana
 - OpenAPI / Swagger
 - Maven
-- GitHub Actions
+- Docker / Docker Compose
 
-## Project Structure
+## Core features
+
+- Register and login users
+- Issue and validate JWT tokens
+- CRUD for users and products
+- Product pagination and filtering
+- Order creation, listing, status flow, and cancellation rules
+- Role-based authorization for admin actions
+- Mock payment flow connected to order status
+- Redis cache for product listing
+- Production-style observability endpoints
+
+## Login and security flow
+
+1. `POST /api/auth/register` creates a user.
+2. `POST /api/auth/login` authenticates credentials and returns a JWT.
+3. `SecurityConfig` keeps the app stateless and registers the JWT filter.
+4. Public routes include:
+   - `/api/auth/**`
+   - `/v3/api-docs/**`
+   - `/swagger-ui/**`
+   - `/swagger-ui.html`
+   - `/actuator/health/**`
+   - `/actuator/info`
+   - `/actuator/prometheus`
+5. All other endpoints require authentication.
+6. Method security is enabled for role-based checks when needed.
+
+## API documentation
+
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+
+The controllers and DTOs are documented with Springdoc annotations such as `@Operation`,
+`@ApiResponse`, and `@Schema`.
+
+## Project structure
 
 ```text
 src/main/java/com/marcosdias/miniifood/
   auth/       Authentication (login/register)
   user/       User management
-  product/    Product CRUD + cache integration
-  order/      Order aggregate and status flow
+  product/    Product CRUD and cache integration
+  order/      Order aggregate and status rules
   payment/    Mock payment flow
-  security/   JWT service, filter, security configuration
-  config/     Infrastructure configuration (cache)
+  security/   JWT service, filter, and security configuration
+  config/     Cache and infrastructure configuration
 ```
 
-## Main Features
+## Testing strategy
 
-- User registration and login
-- JWT token issuance and request authentication
-- Product CRUD with pagination
-- Order creation, listing, status updates, and cancellation rules
-- Role-based access on admin order operations
-- Mock payment processing integrated with order status
-- Redis cache on product listing
-- Database versioning with Flyway migrations
+The repository includes real tests, not placeholders:
 
-## API Documentation
-
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
-
-## Local Setup
-
-Requirements:
-
-- JDK 21+
-- Maven 3.9+
-- Docker + Docker Compose
-
-## Quick Start
-
-Run everything with Docker (app + PostgreSQL + Redis + Prometheus + Grafana):
-
-```powershell
-docker compose up -d --build
-docker compose ps
-```
-
-Create a local environment file once (recommended):
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Optional environment overrides (PowerShell):
-
-```powershell
-$env:DB_HOST="localhost"
-$env:DB_PORT="5433"
-$env:DB_NAME="mini_ifood"
-$env:DB_USER="postgres"
-$env:DB_PASSWORD="your_password"
-$env:JWT_SECRET="your-secret-key-min-32-chars"
-$env:REDIS_HOST="localhost"
-$env:REDIS_PORT="6379"
-```
-
-If you prefer running only infrastructure with Docker and app on host:
-
-```powershell
-.\mvnw.cmd test
-.\mvnw.cmd spring-boot:run
-```
-
-Stop infrastructure:
-
-```powershell
-docker compose down
-```
-
-If the cache schema changes between runs, clear Redis once:
-
-```powershell
-docker exec -it mini-ifood-cache redis-cli FLUSHALL
-```
-
-## Postman Collection
-
-- Collection file: `MiniIfoodAPI.postman_collection.json`
-- Import this file in Postman to test auth and product cache flow
-- Run `Auth -> Login User` first to populate `auth_token`
-- Then run `Products -> Get All Products (CACHE TEST 1/2)` to see Redis cache behavior
-
-## Test Strategy
-
-Current suite includes:
-
-- Unit tests for service/business rules
-- Integration tests for service and repository behavior
-- Security-focused tests (JWT, filter, method authorization)
-- HTTP-level tests for `AuthController` and `ProductController` using `@WebMvcTest` + `MockMvc`
-- HTTP-level integration tests for `OrderController` using `MockMvc`
+- Unit tests for service logic
+- Integration tests for repositories and services
+- Security tests for JWT, authentication, and access control
+- HTTP tests with `MockMvc` for auth and product endpoints
+- HTTP integration tests for order endpoints
+- Optional Testcontainers smoke test for PostgreSQL and Redis
 
 Useful commands:
 
 ```powershell
 .\mvnw.cmd test
+.\mvnw.cmd test -Dtest=AuthControllerMvcTest,ProductControllerMvcTest
 .\mvnw.cmd test -Dtest=OrderControllerIntegrationTest
-.\mvnw.cmd test "-Dtest=AuthControllerMvcTest,ProductControllerMvcTest"
 ```
 
-### Optional Advanced: Testcontainers
-
-An optional Testcontainers baseline is included for PostgreSQL + Redis smoke testing.
-It only runs when `RUN_TESTCONTAINERS=true`.
+### Optional Testcontainers run
 
 ```powershell
 $env:RUN_TESTCONTAINERS="true"
 .\mvnw.cmd test -Dtest=ContainersSmokeTest
 ```
 
-## Profiles
+## Cache behavior
 
-- `dev`: PostgreSQL + Redis
-- `test`: H2 in-memory (fast CI tests)
-- `prod`: PostgreSQL strict runtime config
-- `tc`: Testcontainers support profile
+The product listing is cached in Redis with a 60-minute TTL.
+When products are created, updated, or deleted, the cache is evicted so the next request rebuilds it.
 
-## Monitoring (Prometheus + Grafana)
+Helpful command during local testing:
 
-This project already exposes metrics through `http://localhost:8080/actuator/prometheus`.
+```powershell
+docker exec -it mini-ifood-cache redis-cli FLUSHALL
+```
 
-- `Prometheus` collects and stores metrics over time (it does not render dashboards).
-- `Grafana` reads data from Prometheus and renders charts/dashboards.
+## Observability
 
-Most teams run both with Docker because setup is faster and reproducible.
-In this project they are already part of `docker-compose.yml`.
+Metrics are exposed at:
 
-Open:
+```text
+http://localhost:8080/actuator/prometheus
+```
+
+The Docker Compose stack also includes:
 
 - Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000` (default login `admin` / `admin`)
+- Grafana: `http://localhost:3000`
 
-Prometheus targets expected as `UP`:
+Prometheus scrapes:
 
 - `app:8080`
 - `postgres-exporter:9187`
 - `redis-exporter:9121`
 
-Grafana dashboards to import:
+Suggested Grafana dashboards:
 
 - PostgreSQL Exporter: `9628`
 - Redis Exporter: `763`
 
-Grafana data source configuration:
+Grafana data source:
 
 - Type: `Prometheus`
 - URL: `http://prometheus:9090`
 
-Stop monitoring stack:
+## Run locally with Docker
+
+Requirements:
+
+- JDK 21+
+- Docker Desktop
+- Docker Compose
+
+1. Copy the example environment file:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+2. Start the full stack:
+
+```powershell
+docker compose up -d --build
+```
+
+3. Verify the services:
+
+```powershell
+docker compose ps
+```
+
+4. Open the main URLs:
+
+- API: `http://localhost:8080`
+- Swagger: `http://localhost:8080/swagger-ui/index.html`
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3000`
+
+Default Grafana login:
+
+- user: `admin`
+- password: `admin`
+
+Stop the stack:
 
 ```powershell
 docker compose down
 ```
 
-## CI
+## Environment variables
 
-GitHub Actions workflow runs tests on pushes and pull requests for `main`, `develop`, and `feature/**` branches.
+The project supports these variables from `.env.example`:
+
+```dotenv
+SPRING_PROFILES_ACTIVE=dev
+JWT_SECRET=change-this-secret-key-with-at-least-32-characters
+JWT_EXPIRATION_MINUTES=60
+DB_HOST=postgres
+DB_PORT=5432
+DB_NAME=mini_ifood
+DB_USER=postgres
+DB_PASSWORD=postgres
+REDIS_HOST=redis
+REDIS_PORT=6379
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=admin
+```
+
+## Profiles
+
+- `dev`: PostgreSQL + Redis
+- `test`: H2 in-memory for fast tests
+- `prod`: strict PostgreSQL runtime config
+- `tc`: Testcontainers support
+
+## Postman collection
+
+Import `MiniIfoodAPI.postman_collection.json` to test the API quickly.
+
+Recommended flow:
+
+1. Register a user.
+2. Login and copy the JWT token.
+3. Call protected endpoints with the `Authorization: Bearer <token>` header.
+4. Run the product cache requests twice to see the Redis hit.
 
 ## License
 

@@ -45,7 +45,7 @@ public class Product {
     @Column(nullable = false)
     private OffsetDateTime updatedAt;
 
-    @PrePersist
+    @PrePersist // é executado antes de o produto ser persistido no banco de dados
     public void prePersist() {
         OffsetDateTime now = OffsetDateTime.now();
         this.createdAt = now;

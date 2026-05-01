@@ -2,7 +2,7 @@ env:
   contexts:
     - name: "target-context"
       urls:
-        - "http://127.0.0.1:8080" 
+        - "http://127.0.0.1:8080/v3/api-docs" 
   parameters:
     failOnError: false
     failOnWarning: false
@@ -14,7 +14,7 @@ jobs:
   - type: spider
     parameters:
       context: "target-context"
-      url: "http://127.0.0.1:8080" 
+      url: "http://127.0.0.1:8080/v3/api-docs" 
       maxDuration: 5
 
   - type: passiveScan-wait

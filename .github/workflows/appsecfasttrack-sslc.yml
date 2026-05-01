@@ -257,19 +257,12 @@ jobs:
           cp "${AUTOMATION_SOURCE_PATH}" "${AUTOMATION_PLAN_PATH}"
 
           set +e
-          if [[ -x "/opt/zaproxy/zap.sh" ]]; then
-            mkdir -p /home/ubuntu
-            cp "${AUTOMATION_PLAN_PATH}" /home/ubuntu/automation_plan.yaml
-            /opt/zaproxy/zap.sh -cmd -autorun /home/ubuntu/automation_plan.yaml | tee "${ASFT_LOG_DIR}/zap-automation.log"
-            ZAP_EXIT_CODE=${PIPESTATUS[0]}
-          else
-            docker pull "${ZAP_IMAGE}"
-            docker run --rm --network host \
-              -v "${ZAP_REPORT_DIR}:/zap/wrk:rw" \
-              "${ZAP_IMAGE}" /zap/zap.sh -cmd -autorun /zap/wrk/automation_plan.yaml \
-              | tee "${ASFT_LOG_DIR}/zap-automation.log"
-            ZAP_EXIT_CODE=${PIPESTATUS[0]}
-          fi
+          docker pull "${ZAP_IMAGE}"
+          docker run --rm --network host \
+            -v "${ZAP_REPORT_DIR}:/zap/wrk:rw" \
+            "${ZAP_IMAGE}" /zap/zap.sh -cmd -autorun /zap/wrk/automation_plan.yaml \
+            | tee "${ASFT_LOG_DIR}/zap-automation.log"
+          ZAP_EXIT_CODE=${PIPESTATUS[0]}
           set -e
 
           echo "[INFO] ZAP automation exited with code ${ZAP_EXIT_CODE}. Running in report-only mode; continuing pipeline."

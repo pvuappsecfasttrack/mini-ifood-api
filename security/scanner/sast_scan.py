@@ -91,7 +91,7 @@ def run_semgrep_docker(project_dir: Path, excludes, script_dir: Path):
     return out_host_path
 
 
-def run_dependency_check_docker(project_dir: Path, script_dir: Path) -> Path:
+def run_dependency_check_docker(project_dir: Path, script_dir: Path):
     out_host_path = script_dir / ODC_OUTPUT_FILENAME
     dc_data_dir = script_dir / ".odc-data"
     dc_data_dir.mkdir(exist_ok=True)
@@ -109,12 +109,10 @@ def run_dependency_check_docker(project_dir: Path, script_dir: Path) -> Path:
     log(f"Executing ODC container command: {' '.join(cmd)}")
     code, out, err = shell(cmd, check=False, stream=True)
     if code != 0:
-        raise RuntimeError(
-            "Dependency-Check execution failed "
-            f"(exit code {code}). Review container logs for details."
-        )
+        log(f"[ERROR] Dependency-Check execution failed (exit code {code}). Continuing with available SAST results.")
     if not out_host_path.exists():
-        raise RuntimeError(f"Dependency-Check JSON report missing. ExitCode={code}\nSTDOUT:\n{out}\nSTDERR:\n{err}")
+        log(f"[ERROR] Dependency-Check JSON report missing. ExitCode={code}. Continuing without ODC findings.")
+        return None
     return out_host_path
 
 
@@ -218,8 +216,21 @@ def main():
     if args.with_odc:
         log("Running OWASP Dependency-Check in Docker...")
         odc_out = run_dependency_check_docker(project_dir, script_dir)
-        odc_json = json.loads(odc_out.read_text(encoding="utf-8"))
-        vulns.extend(build_vulnerabilities_from_odc(odc_json, scan_version, project_name))
+        if odc_out is not None:
+            odc_json = json.loads(odc_out.read_text(encoding="utf-8"))
+            vulns.extend(build_vulnerabilities_from_odc(odc_json, scan_version, project_name))
+        else:
+            vulns.append({
+                "severity": SEVERITY_ENUM["Low"],
+                "bugType": "ODC_SCAN_EXECUTION_ERROR",
+                "codeLocation": "security/scanner/sast_scan.py",
+                "line": None,
+                "message": "OWASP Dependency-Check failed to execute or produce a report. See workflow logs for details.",
+                "metadata": {"odc_error": True},
+                "scanTool": ODC_TOOL_ID,
+                "scanVersion": scan_version,
+                "projectName": project_name,
+            })
 
     payload = {"vulnerabilities": vulns}
     payload_bytes = len(json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))

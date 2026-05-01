@@ -22,6 +22,7 @@ jobs:
       ASFT_OUTPUT_DIR: ${{ github.workspace }}/.asft/output
       DEBUG_OUTPUT_DIR: ${{ github.workspace }}/.github/debug-output
       ZAP_REPORT_DIR: ${{ github.workspace }}/.asft/zap-report
+      ZAP_PROXY_PORT: "8090"
       ASFT_APP_HEALTHCHECK_URL: http://127.0.0.1:8080/v3/api-docs 
       ASFT_APP_HEALTHCHECK_TIMEOUT_SEC: "120"
       ASFT_AUTH_KEY: ${{ secrets.ASFT_AUTH_KEY }} 
@@ -258,14 +259,14 @@ jobs:
 
           set +e
           if [[ -x "/opt/zaproxy/zap.sh" ]]; then
-            /opt/zaproxy/zap.sh -cmd -dir "${ZAP_REPORT_DIR}" -autorun "${AUTOMATION_PLAN_PATH}" \
+            /opt/zaproxy/zap.sh -cmd -port "${ZAP_PROXY_PORT}" -dir "${ZAP_REPORT_DIR}" -autorun "${AUTOMATION_PLAN_PATH}" \
               | tee "${ASFT_LOG_DIR}/zap-automation.log"
             ZAP_EXIT_CODE=${PIPESTATUS[0]}
           else
             docker pull "${ZAP_IMAGE}"
             docker run --rm --network host \
               -v "${ZAP_REPORT_DIR}:/zap/wrk:rw" \
-              "${ZAP_IMAGE}" /zap/zap.sh -cmd -autorun /zap/wrk/automation_plan.yaml \
+              "${ZAP_IMAGE}" /zap/zap.sh -cmd -port "${ZAP_PROXY_PORT}" -autorun /zap/wrk/automation_plan.yaml \
               | tee "${ASFT_LOG_DIR}/zap-automation.log"
             ZAP_EXIT_CODE=${PIPESTATUS[0]}
           fi

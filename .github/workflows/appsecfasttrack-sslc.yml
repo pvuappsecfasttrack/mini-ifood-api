@@ -8,7 +8,7 @@ on:
   pull_request:
   push:
     branches:
-      - dev # CLIENT_TODO: change to target repository branch (e.g., main)
+      - main
 
 jobs:
   appsecfasttrack-sslc:
@@ -22,10 +22,10 @@ jobs:
       ASFT_OUTPUT_DIR: ${{ github.workspace }}/.asft/output
       DEBUG_OUTPUT_DIR: ${{ github.workspace }}/.github/debug-output
       ZAP_REPORT_DIR: ${{ github.workspace }}/.asft/zap-report
-      ASFT_APP_HEALTHCHECK_URL: http://127.0.0.1:3000/api-docs # CLIENT_TODO: change health/docs URL for target app
+      ASFT_APP_HEALTHCHECK_URL: http://127.0.0.1:8080/v3/api-docs 
       ASFT_APP_HEALTHCHECK_TIMEOUT_SEC: "120"
-      ASFT_AUTH_KEY: ${{ secrets.ASFT_AUTH_KEY }} # CLIENT_TODO: create this secret in target repo
-      ASFT_UPLOAD_AUTH_KEY: ${{ secrets.ASFT_UPLOAD_AUTH_KEY || secrets.ASFT_AUTH_KEY }} # CLIENT_TODO: optional dedicated upload secret
+      ASFT_AUTH_KEY: ${{ secrets.ASFT_AUTH_KEY }} 
+      ASFT_UPLOAD_AUTH_KEY: ${{ secrets.ASFT_UPLOAD_AUTH_KEY || secrets.ASFT_AUTH_KEY }}
       # Scanner timeout (minutes). Increase for first-time ODC DB warmup/sync.
       ASFT_SCANNER_TIMEOUT_MIN: ${{ vars.ASFT_SCANNER_TIMEOUT_MIN || '90' }}
       # Optional quality gate toggle for this security pipeline.

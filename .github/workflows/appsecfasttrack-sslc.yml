@@ -82,7 +82,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          cp -fv security/scanner/sast_scan.py "${ASFT_SCANNER_SCRIPT}" # CLIENT_TODO: keep path valid in target repo
+          cp -fv security/scanner/sast_scan.py "${ASFT_SCANNER_SCRIPT}" 
           cp -fv security/scanner/asft_config.properties "${ASFT_SCANNER_CONFIG}"
           chmod +x "${ASFT_SCANNER_SCRIPT}"
           if [[ -z "${ASFT_AUTH_KEY:-}" ]]; then

@@ -108,6 +108,11 @@ def run_dependency_check_docker(project_dir: Path, script_dir: Path) -> Path:
     cmd += [ODC_IMAGE, "--scan", "/src", "--format", "JSON", "--out", "/report", "--project", "asft-odc"]
     log(f"Executing ODC container command: {' '.join(cmd)}")
     code, out, err = shell(cmd, check=False, stream=True)
+    if code != 0:
+        raise RuntimeError(
+            "Dependency-Check execution failed "
+            f"(exit code {code}). Review container logs for details."
+        )
     if not out_host_path.exists():
         raise RuntimeError(f"Dependency-Check JSON report missing. ExitCode={code}\nSTDOUT:\n{out}\nSTDERR:\n{err}")
     return out_host_path

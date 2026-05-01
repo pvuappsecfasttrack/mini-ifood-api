@@ -1,0 +1,389 @@
+# CLIENT SETUP HIGHLIGHTS:
+# - Search for "CLIENT_TODO" in this file and populate those values for the new repository.
+# - Keep secrets/vars in repository settings, not in this file.
+
+name: AppSecFasttrack SSLC (Semgrep + ODC)
+
+on:
+  pull_request:
+  push:
+    branches:
+      - dev # CLIENT_TODO: change to target repository branch (e.g., main)
+
+jobs:
+  appsecfasttrack-sslc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      ASFT_SCANNER_DIR: ${{ github.workspace }}/.asft/scanner
+      ASFT_SCANNER_SCRIPT: ${{ github.workspace }}/.asft/scanner/sast_scan.py
+      ASFT_SCANNER_CONFIG: ${{ github.workspace }}/.asft/scanner/asft_config.properties
+      ASFT_LOG_DIR: ${{ github.workspace }}/.asft/logs
+      ASFT_OUTPUT_DIR: ${{ github.workspace }}/.asft/output
+      DEBUG_OUTPUT_DIR: ${{ github.workspace }}/.github/debug-output
+      ZAP_REPORT_DIR: ${{ github.workspace }}/.asft/zap-report
+      ASFT_APP_HEALTHCHECK_URL: http://127.0.0.1:3000/api-docs # CLIENT_TODO: change health/docs URL for target app
+      ASFT_APP_HEALTHCHECK_TIMEOUT_SEC: "120"
+      ASFT_AUTH_KEY: ${{ secrets.ASFT_AUTH_KEY }} # CLIENT_TODO: create this secret in target repo
+      ASFT_UPLOAD_AUTH_KEY: ${{ secrets.ASFT_UPLOAD_AUTH_KEY || secrets.ASFT_AUTH_KEY }} # CLIENT_TODO: optional dedicated upload secret
+      # Scanner timeout (minutes). Increase for first-time ODC DB warmup/sync.
+      ASFT_SCANNER_TIMEOUT_MIN: ${{ vars.ASFT_SCANNER_TIMEOUT_MIN || '90' }}
+      # Optional quality gate toggle for this security pipeline.
+      # Keep false to avoid blocking SAST/SCA runs on unrelated lint debt.
+      ASFT_ENFORCE_LINT: ${{ vars.ASFT_ENFORCE_LINT || 'false' }}
+      # Maximum JSON payload size allowed for POST to ASFT API; scanner skips POST when exceeded.
+      ASFT_PAYLOAD_MAX_POST_BYTES: ${{ vars.ASFT_PAYLOAD_MAX_POST_BYTES || '950000' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verbose runner diagnostics
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "[INFO] ACTIONS_RUNNER_DEBUG=true / ACTIONS_STEP_DEBUG=true can be enabled for deeper diagnostics"
+          uname -a
+          cat /etc/os-release || true
+          echo "[INFO] pwd=$(pwd)"
+          echo "[INFO] repo=${GITHUB_REPOSITORY} ref=${GITHUB_REF} sha=${GITHUB_SHA}"
+          ls -la
+
+      - name: Initialize scanner/output/debug directories
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "${ASFT_SCANNER_DIR}" "${ASFT_LOG_DIR}" "${ASFT_OUTPUT_DIR}" "${DEBUG_OUTPUT_DIR}" "${ZAP_REPORT_DIR}"
+          echo "[INFO] ASFT_SCANNER_DIR=${ASFT_SCANNER_DIR}"
+          echo "[INFO] ASFT_SCANNER_SCRIPT=${ASFT_SCANNER_SCRIPT}"
+          echo "[INFO] ASFT_SCANNER_CONFIG=${ASFT_SCANNER_CONFIG}"
+          ls -la "${ASFT_SCANNER_DIR}"
+
+      - name: Restore Dependency-Check NVD cache
+        id: odc-cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.ASFT_SCANNER_DIR }}/.odc-data
+          # Run 2+ restores the newest matching cache via restore-keys.
+          # Run 1 will miss, then a later save step persists the first cache.
+          key: odc-${{ runner.os }}-dc12_1_9-${{ github.run_id }}
+          restore-keys: |
+            odc-${{ runner.os }}-dc12_1_9-
+
+      - name: Log ODC cache restore status
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "[INFO] ODC cache hit (exact key): ${{ steps.odc-cache-restore.outputs.cache-hit }}"
+          ls -la "${ASFT_SCANNER_DIR}/.odc-data" || true
+
+      - name: Setup Node.js for api-server
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: api-server/package-lock.json # CLIENT_TODO: update/remove for target repository layout
+
+      - name: Prepare scanner bundle from repository assets
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cp -fv security/scanner/sast_scan.py "${ASFT_SCANNER_SCRIPT}" # CLIENT_TODO: keep path valid in target repo
+          cp -fv security/scanner/asft_config.properties "${ASFT_SCANNER_CONFIG}"
+          chmod +x "${ASFT_SCANNER_SCRIPT}"
+          if [[ -z "${ASFT_AUTH_KEY:-}" ]]; then
+            echo "[ERROR] Missing required GitHub secret: ASFT_AUTH_KEY"
+            exit 1
+          fi
+          python3 -c 'import json,os; cfg=os.environ["ASFT_SCANNER_CONFIG"]; data=json.load(open(cfg,"r",encoding="utf-8")); data["asftAuthKey"]=os.environ["ASFT_AUTH_KEY"]; json.dump(data, open(cfg,"w",encoding="utf-8"), indent=2); open(cfg,"a",encoding="utf-8").write("\n")'
+          echo "[INFO] Verifying ASFT_AUTH_KEY injection without exposing secret value"
+          source_len="$(printf "%s" "${ASFT_AUTH_KEY}" | wc -c | tr -d ' ')"
+          final_len="$(python3 -c 'import json,os; cfg=os.environ["ASFT_SCANNER_CONFIG"]; data=json.load(open(cfg,"r",encoding="utf-8")); print(len(data.get("asftAuthKey","")))')"
+          echo "[INFO] ASFT_AUTH_KEY source length: ${source_len}"
+          echo "[INFO] ASFT_AUTH_KEY injected length: ${final_len}"
+          if [[ "${source_len}" != "${final_len}" ]]; then
+            echo "[ERROR] ASFT_AUTH_KEY length mismatch after config injection; placeholder replacement likely altered the secret."
+            exit 1
+          fi
+          echo "[INFO] ASFT_AUTH_KEY length verification passed"
+          ls -la "${ASFT_SCANNER_DIR}"
+
+      - name: Validate scanner files
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -f "${ASFT_SCANNER_SCRIPT}"
+          test -x "${ASFT_SCANNER_SCRIPT}"
+          test -f "${ASFT_SCANNER_CONFIG}"
+
+      - name: Docker preflight diagnostics for scanner
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker --version
+          docker info
+          docker system df
+
+      - name: Pre-flight SaaS controller connectivity (DNS + TCP + HTTPS)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ASFT_CONTROLLER_URL="$(python3 -c 'import json, pathlib, os; p=pathlib.Path(os.environ["ASFT_SCANNER_CONFIG"]); print((json.loads(p.read_text(encoding="utf-8"))).get("asftUrl", ""))')"
+          if [[ -z "${ASFT_CONTROLLER_URL}" ]]; then
+            echo "[ERROR] asftUrl not found in ${ASFT_SCANNER_CONFIG}"
+            exit 1
+          fi
+          export ASFT_CONTROLLER_URL
+          CONTROLLER_HOST="$(python3 -c 'import os,urllib.parse as p; u=p.urlparse(os.environ["ASFT_CONTROLLER_URL"]); print(u.hostname or "")')"
+          CONTROLLER_PORT="$(python3 -c 'import os,urllib.parse as p; u=p.urlparse(os.environ["ASFT_CONTROLLER_URL"]); print(u.port or (443 if u.scheme=="https" else 80))')"
+          echo "[INFO] ASFT_CONTROLLER_URL=${ASFT_CONTROLLER_URL}"
+          echo "[INFO] host=${CONTROLLER_HOST} port=${CONTROLLER_PORT}"
+          getent hosts "${CONTROLLER_HOST}" | tee "${DEBUG_OUTPUT_DIR}/connectivity-dns.log"
+          set +e
+          timeout 15 bash -c "</dev/tcp/${CONTROLLER_HOST}/${CONTROLLER_PORT}"
+          tcp_status=$?
+          curl -vfsS --connect-timeout 10 --max-time 30 --retry 2 --retry-delay 2 "${ASFT_CONTROLLER_URL}" -o /dev/null \
+            2> >(tee "${DEBUG_OUTPUT_DIR}/connectivity-curl-stderr.log" >&2)
+          curl_status=$?
+          set -e
+          if [[ "${tcp_status}" -ne 0 ]]; then
+            echo "[WARN] TCP pre-flight check failed with exit code ${tcp_status}; continuing."
+          fi
+          if [[ "${curl_status}" -ne 0 ]]; then
+            echo "[WARN] HTTPS pre-flight check failed with exit code ${curl_status}; continuing."
+          fi
+
+      - name: Build api-server from repository instructions
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd api-server
+          npm install 2>&1 | tee "${ASFT_LOG_DIR}/api-server-npm-install.log"
+          npx puppeteer browsers install chrome 2>&1 | tee "${ASFT_LOG_DIR}/api-server-puppeteer-install.log"
+          set +e
+          npm run lint 2>&1 | tee "${ASFT_LOG_DIR}/api-server-lint.log"
+          lint_status=$?
+          set -e
+          if [[ "${lint_status}" -ne 0 ]]; then
+            if [[ "${ASFT_ENFORCE_LINT}" == "true" ]]; then
+              echo "[ERROR] Lint failed and ASFT_ENFORCE_LINT=true, failing job."
+              exit "${lint_status}"
+            fi
+            echo "[WARN] Lint failed but ASFT_ENFORCE_LINT=false; continuing so security scans can run."
+          fi
+
+      - name: Run SAST + SCA command
+        id: sast
+        shell: bash
+        continue-on-error: false
+        run: |
+          set -euxo pipefail
+          cd "${ASFT_SCANNER_DIR}"
+          echo "[INFO] Starting scanner command in ${ASFT_SCANNER_DIR}"
+          echo "[INFO] Using command timeout: ${ASFT_SCANNER_TIMEOUT_MIN}m"
+          set +e
+          if ! command -v sudo >/dev/null 2>&1; then
+            echo "[ERROR] sudo is required in this workflow to run Docker-backed scanner command."
+            echo "[ERROR] This pipeline expects GitHub-hosted Ubuntu runner behavior with sudo available."
+            exit 1
+          fi
+          timeout "${ASFT_SCANNER_TIMEOUT_MIN}m" sudo -E python3 sast_scan.py "${GITHUB_WORKSPACE}" --with-odc 2>&1 | tee "${ASFT_LOG_DIR}/sast_sca.log"
+          scanner_status=${PIPESTATUS[0]}
+          set -e
+          echo "[INFO] scanner exit code=${scanner_status}"
+          if [[ "${scanner_status}" -ne 0 ]]; then
+            echo "[ERROR] scanner command failed; printing diagnostics"
+            ls -la "${ASFT_SCANNER_DIR}" || true
+            tail -n 300 "${ASFT_LOG_DIR}/sast_sca.log" || true
+            exit "${scanner_status}"
+          fi
+          cp -f "${ASFT_SCANNER_DIR}/semgrep-report.json" "${ASFT_OUTPUT_DIR}/" 2>/dev/null || true
+          cp -f "${ASFT_SCANNER_DIR}/dependency-check-report.json" "${ASFT_OUTPUT_DIR}/" 2>/dev/null || true
+
+      - name: Check payload POST limit breach (non-blocking)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "[INFO] Payload POST limit: ${ASFT_PAYLOAD_MAX_POST_BYTES} bytes"
+          if grep -q "Skipping POST to ASFT server" "${ASFT_LOG_DIR}/sast_sca.log"; then
+            matched_line="$(grep "Skipping POST to ASFT server" "${ASFT_LOG_DIR}/sast_sca.log" | tail -n 1)"
+            echo "::error title=ASFT payload POST skipped::${matched_line}"
+            echo "[ERROR] ${matched_line}"
+            echo "[WARN] Payload upload was skipped; workflow continues."
+          else
+            echo "[INFO] No payload limit breach detected in scanner log."
+          fi
+
+      - name: Save Dependency-Check NVD cache
+        if: always() && !cancelled()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.ASFT_SCANNER_DIR }}/.odc-data
+          key: odc-${{ runner.os }}-dc12_1_9-${{ github.run_id }}
+
+      - name: Start api-server and dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd api-server
+          cp -n src/config/template.env src/config/.env || true
+          if docker compose version >/dev/null 2>&1; then
+            docker compose up -d 2>&1 | tee "${ASFT_LOG_DIR}/api-server-docker-compose-up.log"
+          else
+            docker-compose up -d 2>&1 | tee "${ASFT_LOG_DIR}/api-server-docker-compose-up.log"
+          fi
+          npm run dev > "${GITHUB_WORKSPACE}/app.log" 2>&1 &
+          echo $! > "${DEBUG_OUTPUT_DIR}/app.pid"
+          ps -fp "$(cat "${DEBUG_OUTPUT_DIR}/app.pid")" || true
+
+      - name: Wait for api-server health
+        shell: bash
+        run: |
+          set -euxo pipefail
+          end_time="$(( $(date +%s) + ${ASFT_APP_HEALTHCHECK_TIMEOUT_SEC} ))"
+          while [[ "$(date +%s)" -lt "${end_time}" ]]; do
+            if curl -fsS "${ASFT_APP_HEALTHCHECK_URL}" > "${DEBUG_OUTPUT_DIR}/health-response.txt"; then
+              echo "[INFO] Health check passed: ${ASFT_APP_HEALTHCHECK_URL}"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "[ERROR] Health check failed: ${ASFT_APP_HEALTHCHECK_URL}"
+          tail -n 200 app.log || true
+          if [[ -f "${DEBUG_OUTPUT_DIR}/app.pid" ]]; then
+            ps -fp "$(cat "${DEBUG_OUTPUT_DIR}/app.pid")" || true
+          fi
+          exit 1
+
+      - name: Run ZAP legacy automation scan
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ZAP_IMAGE="ghcr.io/zaproxy/zaproxy:stable"
+          AUTOMATION_SOURCE_PATH="${ASFT_ZAP_AUTOMATION_FILE:-${GITHUB_WORKSPACE}/security/scanner/automation.yaml}" # CLIENT_TODO: set client-specific ZAP automation file
+          AUTOMATION_PLAN_PATH="${ZAP_REPORT_DIR}/automation_plan.yaml"
+          rm -rf "${ZAP_REPORT_DIR}"
+          mkdir -p "${ZAP_REPORT_DIR}"
+
+          # Prior scanner steps run with sudo and can leave .asft owned by root.
+          # Ensure the report mount path is writable for ZAP automation runs.
+          sudo chown -R "$(id -u):$(id -g)" "${GITHUB_WORKSPACE}/.asft"
+          chmod -R u+rwX "${GITHUB_WORKSPACE}/.asft"
+          chmod 0777 "${ZAP_REPORT_DIR}"
+
+          if [[ ! -f "${AUTOMATION_SOURCE_PATH}" ]]; then
+            echo "[ERROR] ZAP automation file not found: ${AUTOMATION_SOURCE_PATH}"
+            echo "[ERROR] Provide a client-specific automation plan via ASFT_ZAP_AUTOMATION_FILE or commit security/scanner/automation.yaml."
+            exit 1
+          fi
+
+          cp "${AUTOMATION_SOURCE_PATH}" "${AUTOMATION_PLAN_PATH}"
+
+          set +e
+          if [[ -x "/opt/zaproxy/zap.sh" ]]; then
+            mkdir -p /home/ubuntu
+            cp "${AUTOMATION_PLAN_PATH}" /home/ubuntu/automation_plan.yaml
+            /opt/zaproxy/zap.sh -cmd -autorun /home/ubuntu/automation_plan.yaml | tee "${ASFT_LOG_DIR}/zap-automation.log"
+            ZAP_EXIT_CODE=${PIPESTATUS[0]}
+          else
+            docker pull "${ZAP_IMAGE}"
+            docker run --rm --network host \
+              -v "${ZAP_REPORT_DIR}:/zap/wrk:rw" \
+              "${ZAP_IMAGE}" /zap/zap.sh -cmd -autorun /zap/wrk/automation_plan.yaml \
+              | tee "${ASFT_LOG_DIR}/zap-automation.log"
+            ZAP_EXIT_CODE=${PIPESTATUS[0]}
+          fi
+          set -e
+
+          echo "[INFO] ZAP automation exited with code ${ZAP_EXIT_CODE}. Running in report-only mode; continuing pipeline."
+          echo "ZAP_EXIT_CODE=${ZAP_EXIT_CODE}" >> "${GITHUB_ENV}"
+
+          find "${ZAP_REPORT_DIR}" -maxdepth 1 -type f \( -name "*.html" -o -name "*.json" -o -name "*.md" -o -name "*.xml" \) | tee "${ASFT_LOG_DIR}/zap-report-files.log"
+
+      - name: Upload ZAP report artefacts to asft-server
+        shell: bash
+        run: |
+          set -euxo pipefail
+          TARGET_URL="$(echo "${ASFT_APP_HEALTHCHECK_URL}" | sed 's#/api-docs$##')"
+          UPLOAD_BASE_URL="$(python3 -c 'import json, pathlib, os; p=pathlib.Path(os.environ["ASFT_SCANNER_CONFIG"]); print((json.loads(p.read_text(encoding="utf-8"))).get("asftUploadBaseUrl", ""))')"
+          UPLOAD_BASE_URL="${UPLOAD_BASE_URL%/}"
+
+          if [[ -z "${UPLOAD_BASE_URL}" ]]; then
+            echo "[ERROR] asftUploadBaseUrl not found in ${ASFT_SCANNER_CONFIG}"
+            exit 1
+          fi
+
+          if [[ -z "${ASFT_UPLOAD_AUTH_KEY:-}" ]]; then
+            echo "[ERROR] Missing upload auth key. Set GitHub secret ASFT_UPLOAD_AUTH_KEY (or ASFT_AUTH_KEY fallback)."
+            exit 1
+          fi
+
+          FILE_FIELDS=()
+          while IFS= read -r -d '' file; do
+            FILE_FIELDS+=( -F "files=@${file}" )
+          done < <(find "${ZAP_REPORT_DIR}" -maxdepth 1 -type f \( -name "*.html" -o -name "*.json" -o -name "*.md" -o -name "*.xml" \) -print0)
+
+          if [[ "${#FILE_FIELDS[@]}" -eq 0 ]]; then
+            echo "[ERROR] No ZAP report files found in ${ZAP_REPORT_DIR}"
+            exit 1
+          fi
+
+          # API endpoint persists files under static/upload/zap-reports/<scanId>-<target>/ on the SaaS server.
+          curl -fsS -X POST "${UPLOAD_BASE_URL}/api/upload/zap-reports/ingest" \
+            -H "Authorization: ${ASFT_UPLOAD_AUTH_KEY}" \
+            -F "scanId=${GITHUB_RUN_ID}" \
+            -F "target=${TARGET_URL}" \
+            "${FILE_FIELDS[@]}" \
+            | tee "${ASFT_LOG_DIR}/zap-upload-response.json"
+
+      - name: Capture debug inventory
+        if: always()
+        shell: bash
+        run: |
+          set -euxo pipefail
+          {
+            date -u
+            echo "sast_outcome=${{ steps.sast.outcome }}"
+            ls -la
+            ls -la "${ASFT_SCANNER_DIR}" || true
+            ls -la "${ASFT_LOG_DIR}" || true
+            ls -la "${ASFT_OUTPUT_DIR}" || true
+            ls -la "${DEBUG_OUTPUT_DIR}" || true
+            if docker compose version >/dev/null 2>&1; then
+              cd api-server && docker compose ps && cd "${GITHUB_WORKSPACE}"
+            else
+              cd api-server && docker-compose ps && cd "${GITHUB_WORKSPACE}"
+            fi
+          } | tee "${DEBUG_OUTPUT_DIR}/debug-inventory.log"
+
+      - name: Upload troubleshooting artifacts (secondary path only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appsecfasttrack-debug-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            .asft/logs/**
+            .asft/output/**
+            .asft/zap-report/**
+            .github/debug-output/**
+            app.log
+
+      - name: Stop api-server dependencies (always)
+        if: always()
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if [[ -f "${DEBUG_OUTPUT_DIR}/app.pid" ]]; then
+            kill "$(cat "${DEBUG_OUTPUT_DIR}/app.pid")" || true
+          fi
+          cd api-server
+          if docker compose version >/dev/null 2>&1; then
+            docker compose logs --no-color > "${DEBUG_OUTPUT_DIR}/api-server-docker-compose.log" || true
+            docker compose down -v || true
+          else
+            docker-compose logs --no-color > "${DEBUG_OUTPUT_DIR}/api-server-docker-compose.log" || true
+            docker-compose down -v || true
+          fi

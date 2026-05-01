@@ -1,0 +1,30 @@
+env:
+  contexts:
+    - name: "target-context"
+      urls:
+        - "http://127.0.0.1:3000" # CLIENT_TODO: set target application base URL
+  parameters:
+    failOnError: false
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  # Baseline-style exploration (no active attack):
+  # spider + passive scan processing.
+  - type: spider
+    parameters:
+      context: "target-context"
+      url: "http://127.0.0.1:3000" # CLIENT_TODO: set spider start URL
+      maxDuration: 5
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  # Produce an HTML report consumed by ASFT upload/view flow.
+  - type: report
+    parameters:
+      template: "traditional-html"
+      reportDir: "/zap/wrk"
+      reportFile: "zap-baseline-report.html"
+      displayReport: false

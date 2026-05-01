@@ -238,7 +238,6 @@ jobs:
         run: |
           set -euxo pipefail
           ZAP_IMAGE="ghcr.io/zaproxy/zaproxy:stable"
-          AUTOMATION_SOURCE_PATH="${ASFT_ZAP_AUTOMATION_FILE:-${GITHUB_WORKSPACE}/security/scanner/automation.yaml}" # CLIENT_TODO: set client-specific ZAP automation file
           AUTOMATION_PLAN_PATH="${ZAP_REPORT_DIR}/automation_plan.yaml"
           rm -rf "${ZAP_REPORT_DIR}"
           mkdir -p "${ZAP_REPORT_DIR}"
@@ -249,13 +248,13 @@ jobs:
           chmod -R u+rwX "${GITHUB_WORKSPACE}/.asft"
           chmod 0777 "${ZAP_REPORT_DIR}"
 
-          if [[ ! -f "${AUTOMATION_SOURCE_PATH}" ]]; then
-            echo "[ERROR] ZAP automation file not found: ${AUTOMATION_SOURCE_PATH}"
-            echo "[ERROR] Provide a client-specific automation plan via ASFT_ZAP_AUTOMATION_FILE or commit security/scanner/automation.yaml."
+          if [[ ! -f "${GITHUB_WORKSPACE}/security/scanner/automation.yaml" ]]; then
+            echo "[ERROR] ZAP automation file not found: ${GITHUB_WORKSPACE}/security/scanner/automation.yaml"
+            echo "[ERROR] Expected automation plan at security/scanner/automation.yaml."
             exit 1
           fi
 
-          cp "${AUTOMATION_SOURCE_PATH}" "${AUTOMATION_PLAN_PATH}"
+          cp "${GITHUB_WORKSPACE}/security/scanner/automation.yaml" "${AUTOMATION_PLAN_PATH}"
 
           set +e
           if [[ -x "/opt/zaproxy/zap.sh" ]]; then

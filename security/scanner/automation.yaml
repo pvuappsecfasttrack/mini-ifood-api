@@ -2,7 +2,7 @@ env:
   contexts:
     - name: "target-context"
       urls:
-        - "http://127.0.0.1:3000" # CLIENT_TODO: set target application base URL
+        - "http://127.0.0.1:8080" 
   parameters:
     failOnError: false
     failOnWarning: false
@@ -14,7 +14,7 @@ jobs:
   - type: spider
     parameters:
       context: "target-context"
-      url: "http://127.0.0.1:3000" # CLIENT_TODO: set spider start URL
+      url: "http://127.0.0.1:8080" 
       maxDuration: 5
 
   - type: passiveScan-wait

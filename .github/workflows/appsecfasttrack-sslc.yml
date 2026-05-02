@@ -34,6 +34,9 @@ jobs:
       ASFT_ENFORCE_LINT: ${{ vars.ASFT_ENFORCE_LINT || 'false' }}
       # Maximum JSON payload size allowed for POST to ASFT API; scanner skips POST when exceeded.
       ASFT_PAYLOAD_MAX_POST_BYTES: ${{ vars.ASFT_PAYLOAD_MAX_POST_BYTES || '950000' }}
+      ZAP_SCANNER_EMAIL: ${{ secrets.ZAP_SCANNER_EMAIL }}
+      ZAP_SCANNER_PASSWORD: ${{ secrets.ZAP_SCANNER_PASSWORD }}
+      ZAP_SCANNER_NAME: ${{ vars.ZAP_SCANNER_NAME || 'ZAP Scanner' }}
 
     steps:
       - name: Checkout repository
@@ -205,6 +208,42 @@ jobs:
             ps -fp "$(cat "${DEBUG_OUTPUT_DIR}/app.pid")" || true
           fi
           exit 1
+
+      - name: Create scanner JWT for authenticated ZAP
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          API_BASE="http://127.0.0.1:8080"
+
+          if [[ -z "${ZAP_SCANNER_EMAIL:-}" || -z "${ZAP_SCANNER_PASSWORD:-}" ]]; then
+            echo "[ERROR] Missing required GitHub secrets for authenticated ZAP: ZAP_SCANNER_EMAIL and/or ZAP_SCANNER_PASSWORD"
+            exit 1
+          fi
+
+          REGISTER_STATUS="$(curl -sS -o /tmp/zap-register.json -w "%{http_code}" \
+            -X POST "${API_BASE}/api/auth/register" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"${ZAP_SCANNER_NAME}\",\"email\":\"${ZAP_SCANNER_EMAIL}\",\"password\":\"${ZAP_SCANNER_PASSWORD}\"}" || true)"
+
+          if [[ "${REGISTER_STATUS}" != "201" && "${REGISTER_STATUS}" != "409" && "${REGISTER_STATUS}" != "400" ]]; then
+            echo "[WARN] Unexpected register status=${REGISTER_STATUS}; continuing to login"
+            cat /tmp/zap-register.json || true
+          fi
+
+          TOKEN="$(curl -sS -X POST "${API_BASE}/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"${ZAP_SCANNER_EMAIL}\",\"password\":\"${ZAP_SCANNER_PASSWORD}\"}" \
+            | python3 -c 'import sys,json; print(json.load(sys.stdin).get("token",""))')"
+
+          if [[ -z "${TOKEN}" || "${TOKEN}" == "None" ]]; then
+            echo "[ERROR] Failed to obtain JWT token for ZAP scan user"
+            exit 1
+          fi
+
+          echo "::add-mask::${TOKEN}"
+          echo "ZAP_AUTH_TOKEN=${TOKEN}" >> "${GITHUB_ENV}"
+          echo "[INFO] JWT token generated and exported for ZAP automation"
 
       - name: Run ZAP legacy automation scan
         shell: bash

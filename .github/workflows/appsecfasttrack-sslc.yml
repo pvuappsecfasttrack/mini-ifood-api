@@ -39,26 +39,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verbose runner diagnostics
-        shell: bash
-        run: |
-          set -euxo pipefail
-          echo "[INFO] ACTIONS_RUNNER_DEBUG=true / ACTIONS_STEP_DEBUG=true can be enabled for deeper diagnostics"
-          uname -a
-          cat /etc/os-release || true
-          echo "[INFO] pwd=$(pwd)"
-          echo "[INFO] repo=${GITHUB_REPOSITORY} ref=${GITHUB_REF} sha=${GITHUB_SHA}"
-          ls -la
-
       - name: Initialize scanner/output/debug directories
         shell: bash
         run: |
           set -euxo pipefail
           mkdir -p "${ASFT_SCANNER_DIR}" "${ASFT_LOG_DIR}" "${ASFT_OUTPUT_DIR}" "${DEBUG_OUTPUT_DIR}" "${ZAP_REPORT_DIR}"
-          echo "[INFO] ASFT_SCANNER_DIR=${ASFT_SCANNER_DIR}"
-          echo "[INFO] ASFT_SCANNER_SCRIPT=${ASFT_SCANNER_SCRIPT}"
-          echo "[INFO] ASFT_SCANNER_CONFIG=${ASFT_SCANNER_CONFIG}"
-          ls -la "${ASFT_SCANNER_DIR}"
 
       - name: Restore Dependency-Check NVD cache
         id: odc-cache-restore
@@ -76,7 +61,6 @@ jobs:
         run: |
           set -euxo pipefail
           echo "[INFO] ODC cache hit (exact key): ${{ steps.odc-cache-restore.outputs.cache-hit }}"
-          ls -la "${ASFT_SCANNER_DIR}/.odc-data" || true
 
       - name: Prepare scanner bundle from repository assets
         shell: bash
@@ -100,8 +84,6 @@ jobs:
             exit 1
           fi
           echo "[INFO] ASFT_AUTH_KEY length verification passed"
-          ls -la "${ASFT_SCANNER_DIR}"
-
       - name: Validate scanner files
         shell: bash
         run: |
@@ -110,13 +92,11 @@ jobs:
           test -x "${ASFT_SCANNER_SCRIPT}"
           test -f "${ASFT_SCANNER_CONFIG}"
 
-      - name: Docker preflight diagnostics for scanner
+      - name: Verify Docker availability
         shell: bash
         run: |
           set -euxo pipefail
           docker --version
-          docker info
-          docker system df
 
       - name: Pre-flight SaaS controller connectivity (DNS + TCP + HTTPS)
         shell: bash
@@ -146,13 +126,6 @@ jobs:
           if [[ "${curl_status}" -ne 0 ]]; then
             echo "[WARN] HTTPS pre-flight check failed with exit code ${curl_status}; continuing."
           fi
-
-      - name: Skip host build step (Docker handles app build)
-        shell: bash
-        run: |
-          set -euxo pipefail
-          echo "[INFO] Skipping host-level build step."
-          echo "[INFO] docker compose builds the Spring Boot image using Dockerfile."
 
       - name: Run SAST + SCA command
         id: sast
@@ -186,7 +159,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          set -euo pipefail
+          set -euxo pipefail
           echo "[INFO] Payload POST limit: ${ASFT_PAYLOAD_MAX_POST_BYTES} bytes"
           if grep -q "Skipping POST to ASFT server" "${ASFT_LOG_DIR}/sast_sca.log"; then
             matched_line="$(grep "Skipping POST to ASFT server" "${ASFT_LOG_DIR}/sast_sca.log" | tail -n 1)"
@@ -320,11 +293,6 @@ jobs:
           {
             date -u
             echo "sast_outcome=${{ steps.sast.outcome }}"
-            ls -la
-            ls -la "${ASFT_SCANNER_DIR}" || true
-            ls -la "${ASFT_LOG_DIR}" || true
-            ls -la "${ASFT_OUTPUT_DIR}" || true
-            ls -la "${DEBUG_OUTPUT_DIR}" || true
             if docker compose version >/dev/null 2>&1; then
               docker compose ps
             else

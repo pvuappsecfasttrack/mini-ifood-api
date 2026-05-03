@@ -216,13 +216,18 @@ jobs:
 
           API_BASE="http://127.0.0.1:8080"
 
+          if [[ -z "${ASFT_AUTH_KEY:-}" ]]; then
+            echo "[ERROR] Missing required GitHub secret: ASFT_AUTH_KEY"
+            exit 1
+          fi
+          
           if [[ -z "${ZAP_SCANNER_EMAIL:-}" ]]; then
-            echo "[ERROR] ZAP_SCANNER_EMAIL value missing: ${ZAP_SCANNER_EMAIL}"
+            echo "[ERROR] ZAP_SCANNER_EMAIL value missing: ZAP_SCANNER_EMAIL"
             exit 1
           fi
 
           if [[ -z "${ZAP_SCANNER_PASSWORD:-}" ]]; then
-            echo "[ERROR] ZAP_SCANNER_PASSWORD value missing: ${ZAP_SCANNER_PASSWORD}"
+            echo "[ERROR] ZAP_SCANNER_PASSWORD value missing: ZAP_SCANNER_PASSWORD"
             exit 1
           fi
 

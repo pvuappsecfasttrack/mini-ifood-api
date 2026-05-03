@@ -26,7 +26,7 @@ jobs:
       ASFT_APP_HEALTHCHECK_URL: http://127.0.0.1:8080/v3/api-docs 
       ASFT_APP_HEALTHCHECK_TIMEOUT_SEC: "120"
       ASFT_AUTH_KEY: ${{ secrets.ASFT_AUTH_KEY }} 
-      ASFT_UPLOAD_AUTH_KEY: ${{ secrets.ASFT_UPLOAD_AUTH_KEY || secrets.ASFT_AUTH_KEY }}
+      ASFT_UPLOAD_AUTH_KEY: ${{ secrets.ASFT_AUTH_KEY }}
       # Scanner timeout (minutes). Increase for first-time ODC DB warmup/sync.
       ASFT_SCANNER_TIMEOUT_MIN: ${{ vars.ASFT_SCANNER_TIMEOUT_MIN || '90' }}
       # Optional quality gate toggle for this security pipeline.
@@ -217,8 +217,8 @@ jobs:
           API_BASE="http://127.0.0.1:8080"
 
           if [[ -z "${ZAP_SCANNER_EMAIL:-}" || -z "${ZAP_SCANNER_PASSWORD:-}" ]]; then
-            echo "[DEBUG] ZAP_SCANNER_EMAIL=${ZAP_SCANNER_EMAIL}"
-            echo "[DEBUG] ZAP_SCANNER_PASSWORD=${ZAP_SCANNER_PASSWORD}"
+            echo "[ERROR] ZAP_SCANNER_EMAIL=${ZAP_SCANNER_EMAIL}"
+            echo "[ERROR] ZAP_SCANNER_PASSWORD=${ZAP_SCANNER_PASSWORD}"
             echo "[ERROR] Missing required GitHub secrets for authenticated ZAP: ZAP_SCANNER_EMAIL and/or ZAP_SCANNER_PASSWORD"
             exit 1
           fi

@@ -250,7 +250,7 @@ jobs:
           TOKEN="$(curl -sS -X POST "${API_BASE}/api/auth/login" \
             -H "Content-Type: application/json" \
             -d "{\"email\":\"${ZAP_SCANNER_EMAIL}\",\"password\":\"${ZAP_SCANNER_PASSWORD}\"}" \
-            | python3 -c 'import sys,json; print(json.load(sys.stdin).get("token",""))')"
+            | python3 -c 'import sys,json; data=json.load(sys.stdin); print(data.get("accessToken") or data.get("token") or "")')"
 
           if [[ -z "${TOKEN:-}" ]]; then
             echo "[ERROR] Failed to obtain JWT token for ZAP scan user"

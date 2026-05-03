@@ -212,9 +212,15 @@ jobs:
       - name: Create scanner JWT for authenticated ZAP
         shell: bash
         run: |
-          set -euo pipefail
+          set -euxo pipefail
 
           API_BASE="http://127.0.0.1:8080"
+
+          zap_email_len="$(printf "%s" "${ZAP_SCANNER_EMAIL:-}" | wc -c | tr -d ' ')"
+          zap_password_len="$(printf "%s" "${ZAP_SCANNER_PASSWORD:-}" | wc -c | tr -d ' ')"
+  
+          echo "[INFO] (same-step) ZAP_SCANNER_EMAIL length: ${zap_email_len}"
+          echo "[INFO] (same-step) ZAP_SCANNER_PASSWORD length: ${zap_password_len}"
 
           if [[ -z "${ASFT_AUTH_KEY:-}" ]]; then
             echo "[ERROR] Missing required GitHub secret: ASFT_AUTH_KEY"

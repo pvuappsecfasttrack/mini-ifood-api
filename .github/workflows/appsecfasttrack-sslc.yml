@@ -216,9 +216,10 @@ jobs:
 
           API_BASE="http://127.0.0.1:8080"
 
-          if [[ -z "${ZAP_SCANNER_EMAIL:-}" || -z "${ZAP_SCANNER_PASSWORD:-}" ]]; then
-            echo "[ERROR] ZAP_SCANNER_EMAIL=${ZAP_SCANNER_EMAIL}"
-            echo "[ERROR] ZAP_SCANNER_PASSWORD=${ZAP_SCANNER_PASSWORD}"
+          zap_email_len="$(printf "%s" "${ZAP_SCANNER_EMAIL:-}" | wc -c | tr -d ' ')"
+          zap_password_len="$(printf "%s" "${ZAP_SCANNER_PASSWORD:-}" | wc -c | tr -d ' ')"
+
+          if [[ "${zap_email_len}" -eq 0 || "${zap_password_len}" -eq 0 ]]; then
             echo "[ERROR] Missing required GitHub secrets for authenticated ZAP: ZAP_SCANNER_EMAIL and/or ZAP_SCANNER_PASSWORD"
             exit 1
           fi

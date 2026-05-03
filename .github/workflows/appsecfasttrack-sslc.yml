@@ -216,11 +216,15 @@ jobs:
 
           API_BASE="http://127.0.0.1:8080"
 
-          zap_email_len="$(printf "%s" "${ZAP_SCANNER_EMAIL:-}" | wc -c | tr -d ' ')"
-          zap_password_len="$(printf "%s" "${ZAP_SCANNER_PASSWORD:-}" | wc -c | tr -d ' ')"
+          if [[ -z "${ZAP_SCANNER_EMAIL}" ]]; then
+            echo "[ERROR] ZAP_SCANNER_EMAIL value missing: ${ZAP_SCANNER_EMAIL}"
+            exit 1
+          fi
 
-          echo "[INFO] (same-step) ZAP_SCANNER_EMAIL length: ${zap_email_len}"
-          echo "[INFO] (same-step) ZAP_SCANNER_PASSWORD length: ${zap_password_len}"
+          if [[ -z "${ZAP_SCANNER_PASSWORD}" ]]; then
+            echo "[ERROR] ZAP_SCANNER_PASSWORD value missing: ${ZAP_SCANNER_PASSWORD}"
+            exit 1
+          fi
 
           REGISTER_STATUS="$(curl -sS -o /tmp/zap-register.json -w "%{http_code}" \
             -X POST "${API_BASE}/api/auth/register" \
@@ -237,7 +241,7 @@ jobs:
             -d "{\"email\":\"${ZAP_SCANNER_EMAIL}\",\"password\":\"${ZAP_SCANNER_PASSWORD}\"}" \
             | python3 -c 'import sys,json; print(json.load(sys.stdin).get("token",""))')"
 
-          if [[ -z "${TOKEN}" || "${TOKEN}" == "None" ]]; then
+          if [[ -z "${TOKEN}" ]]; then
             echo "[ERROR] Failed to obtain JWT token for ZAP scan user"
             exit 1
           fi

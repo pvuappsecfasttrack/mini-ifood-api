@@ -216,12 +216,12 @@ jobs:
 
           API_BASE="http://127.0.0.1:8080"
 
-          if [[ -z "${ZAP_SCANNER_EMAIL}" ]]; then
+          if [[ -z "${ZAP_SCANNER_EMAIL:-}" ]]; then
             echo "[ERROR] ZAP_SCANNER_EMAIL value missing: ${ZAP_SCANNER_EMAIL}"
             exit 1
           fi
 
-          if [[ -z "${ZAP_SCANNER_PASSWORD}" ]]; then
+          if [[ -z "${ZAP_SCANNER_PASSWORD:-}" ]]; then
             echo "[ERROR] ZAP_SCANNER_PASSWORD value missing: ${ZAP_SCANNER_PASSWORD}"
             exit 1
           fi
@@ -241,7 +241,7 @@ jobs:
             -d "{\"email\":\"${ZAP_SCANNER_EMAIL}\",\"password\":\"${ZAP_SCANNER_PASSWORD}\"}" \
             | python3 -c 'import sys,json; print(json.load(sys.stdin).get("token",""))')"
 
-          if [[ -z "${TOKEN}" ]]; then
+          if [[ -z "${TOKEN:-}" ]]; then
             echo "[ERROR] Failed to obtain JWT token for ZAP scan user"
             exit 1
           fi

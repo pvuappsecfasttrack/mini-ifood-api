@@ -209,10 +209,12 @@ jobs:
           fi
           exit 1
 
-      - name: Diagnose ZAP secret availability (temporary)
+      - name: Create scanner JWT for authenticated ZAP
         shell: bash
         run: |
           set -euo pipefail
+
+          API_BASE="http://127.0.0.1:8080"
 
           if [[ -n "${ZAP_SCANNER_EMAIL:-}" ]]; then
             zap_email_set=true
@@ -229,17 +231,10 @@ jobs:
           zap_email_len="$(printf "%s" "${ZAP_SCANNER_EMAIL:-}" | wc -c | tr -d ' ')"
           zap_password_len="$(printf "%s" "${ZAP_SCANNER_PASSWORD:-}" | wc -c | tr -d ' ')"
 
-          echo "[INFO] ZAP_SCANNER_EMAIL set: ${zap_email_set}"
-          echo "[INFO] ZAP_SCANNER_PASSWORD set: ${zap_password_set}"
-          echo "[INFO] ZAP_SCANNER_EMAIL length: ${zap_email_len}"
-          echo "[INFO] ZAP_SCANNER_PASSWORD length: ${zap_password_len}"
-
-      - name: Create scanner JWT for authenticated ZAP
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          API_BASE="http://127.0.0.1:8080"
+          echo "[INFO] (same-step) ZAP_SCANNER_EMAIL set: ${zap_email_set}"
+          echo "[INFO] (same-step) ZAP_SCANNER_PASSWORD set: ${zap_password_set}"
+          echo "[INFO] (same-step) ZAP_SCANNER_EMAIL length: ${zap_email_len}"
+          echo "[INFO] (same-step) ZAP_SCANNER_PASSWORD length: ${zap_password_len}"
 
           if [[ -z "${ZAP_SCANNER_EMAIL:-}" || -z "${ZAP_SCANNER_PASSWORD:-}" ]]; then
             echo "[ERROR] ZAP_SCANNER_EMAIL=${ZAP_SCANNER_EMAIL:-DEFAULT VALUE}"

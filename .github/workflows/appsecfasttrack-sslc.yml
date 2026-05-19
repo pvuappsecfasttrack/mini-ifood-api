@@ -283,6 +283,15 @@ jobs:
           fi
 
           cp "${GITHUB_WORKSPACE}/security/scanner/automation.yaml" "${AUTOMATION_PLAN_PATH}"
+          python3 - <<'PYTOKEN'
+import os
+from pathlib import Path
+plan = Path(os.environ["AUTOMATION_PLAN_PATH"])
+token = os.environ.get("ZAP_AUTH_TOKEN", "")
+if not token:
+    raise SystemExit("[ERROR] Missing ZAP_AUTH_TOKEN for automation plan token injection")
+plan.write_text(plan.read_text(encoding="utf-8").replace("__ZAP_AUTH_TOKEN__", token), encoding="utf-8")
+PYTOKEN
 
           set +e
           if [[ -x "/opt/zaproxy/zap.sh" ]]; then

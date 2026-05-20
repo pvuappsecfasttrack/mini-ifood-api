@@ -16,7 +16,7 @@ import requests
 
 ENDPOINT_PATH = "/api/java-agent/create-vulnerabilities"
 SEMGREP_IMAGE = "returntocorp/semgrep"
-ODC_IMAGE = "owasp/dependency-check:12.1.9"
+ODC_IMAGE = "owasp/dependency-check:12.1.10"
 OUTPUT_FILENAME = "semgrep-report.json"
 ODC_OUTPUT_FILENAME = "dependency-check-report.json"
 DEFAULT_EXCLUDES = ["node_modules"]
@@ -91,7 +91,7 @@ def run_semgrep_docker(project_dir: Path, excludes, script_dir: Path):
     return out_host_path
 
 
-def run_dependency_check_docker(project_dir: Path, script_dir: Path):
+def run_dependency_check_docker(project_dir: Path, script_dir: Path, no_update: bool = False):
     out_host_path = script_dir / ODC_OUTPUT_FILENAME
     dc_data_dir = script_dir / ".odc-data"
     dc_data_dir.mkdir(exist_ok=True)
@@ -106,6 +106,8 @@ def run_dependency_check_docker(project_dir: Path, script_dir: Path):
     if nvd_api_key:
         cmd.extend(["-e", f"NVD_API_KEY={nvd_api_key}"])
     cmd += [ODC_IMAGE, "--scan", "/src", "--format", "JSON", "--out", "/report", "--project", "asft-odc"]
+    if no_update:
+        cmd.append("--noupdate")
     log(f"Executing ODC container command: {' '.join(cmd)}")
     code, out, err = shell(cmd, check=False, stream=True)
     if code != 0:
@@ -192,6 +194,7 @@ def main():
     parser.add_argument("project_dir")
     parser.add_argument("--with-odc", action="store_true")
     parser.add_argument("--exclude", action="append")
+    parser.add_argument("--odc-noupdate", action="store_true", help="Run Dependency-Check with --noupdate.")
     args = parser.parse_args()
 
     project_dir = Path(args.project_dir).resolve()
@@ -215,7 +218,7 @@ def main():
 
     if args.with_odc:
         log("Running OWASP Dependency-Check in Docker...")
-        odc_out = run_dependency_check_docker(project_dir, script_dir)
+        odc_out = run_dependency_check_docker(project_dir, script_dir, no_update=args.odc_noupdate)
         if odc_out is not None:
             odc_json = json.loads(odc_out.read_text(encoding="utf-8"))
             vulns.extend(build_vulnerabilities_from_odc(odc_json, scan_version, project_name))

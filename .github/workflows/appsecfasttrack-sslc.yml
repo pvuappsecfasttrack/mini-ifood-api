@@ -12,7 +12,7 @@ on:
 
 jobs:
   appsecfasttrack-sslc:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:
       ASFT_SCANNER_DIR: ${{ github.workspace }}/.asft/scanner
@@ -28,7 +28,7 @@ jobs:
       ASFT_AUTH_KEY: ${{ secrets.ASFT_AUTH_KEY }} 
       ASFT_UPLOAD_AUTH_KEY: ${{ secrets.ASFT_AUTH_KEY }}
       # Scanner timeout (minutes). Increase for first-time ODC DB warmup/sync.
-      ASFT_SCANNER_TIMEOUT_MIN: ${{ vars.ASFT_SCANNER_TIMEOUT_MIN || '90' }}
+      ASFT_SCANNER_TIMEOUT_MIN: ${{ vars.ASFT_SCANNER_TIMEOUT_MIN || '120' }}
       # Optional quality gate toggle for this security pipeline.
       # Keep false to avoid blocking SAST/SCA runs on unrelated lint debt.
       ASFT_ENFORCE_LINT: ${{ vars.ASFT_ENFORCE_LINT || 'false' }}
@@ -130,6 +130,18 @@ jobs:
             echo "[WARN] HTTPS pre-flight check failed with exit code ${curl_status}; continuing."
           fi
 
+      - name: Compute scanner timeout
+        shell: bash
+        run: |
+          set -euxo pipefail
+          timeout_min="${ASFT_SCANNER_TIMEOUT_MIN}"
+          if [[ "${{ steps.odc-cache-restore.outputs.cache-hit }}" != "true" ]]; then
+            timeout_min="150"
+            echo "[INFO] ODC cache miss detected; increasing scanner timeout to ${timeout_min}m for cold cache warmup."
+          fi
+          echo "[INFO] Enabling Dependency-Check --noupdate for all workflow runs."
+          echo "ASFT_SCANNER_TIMEOUT_MIN=${timeout_min}" >> "$GITHUB_ENV"
+
       - name: Run SAST + SCA command
         id: sast
         shell: bash
@@ -145,7 +157,7 @@ jobs:
             echo "[ERROR] This pipeline expects GitHub-hosted Ubuntu runner behavior with sudo available."
             exit 1
           fi
-          timeout "${ASFT_SCANNER_TIMEOUT_MIN}m" sudo -E python3 sast_scan.py "${GITHUB_WORKSPACE}" --with-odc 2>&1 | tee "${ASFT_LOG_DIR}/sast_sca.log"
+          timeout "${ASFT_SCANNER_TIMEOUT_MIN}m" sudo -E python3 sast_scan.py "${GITHUB_WORKSPACE}" --with-odc --odc-noupdate 2>&1 | tee "${ASFT_LOG_DIR}/sast_sca.log"
           scanner_status=${PIPESTATUS[0]}
           set -e
           echo "[INFO] scanner exit code=${scanner_status}"

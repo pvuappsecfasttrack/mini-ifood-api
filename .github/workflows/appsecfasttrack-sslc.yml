@@ -267,6 +267,7 @@ jobs:
           set -euxo pipefail
           ZAP_IMAGE="ghcr.io/zaproxy/zaproxy:stable"
           AUTOMATION_PLAN_PATH="${ZAP_REPORT_DIR}/automation_plan.yaml"
+          export AUTOMATION_PLAN_PATH
           rm -rf "${ZAP_REPORT_DIR}"
           mkdir -p "${ZAP_REPORT_DIR}"
 

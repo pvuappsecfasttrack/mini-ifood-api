@@ -27,8 +27,10 @@ jobs:
       ASFT_APP_HEALTHCHECK_TIMEOUT_SEC: "120"
       ASFT_AUTH_KEY: ${{ secrets.ASFT_AUTH_KEY }} 
       ASFT_UPLOAD_AUTH_KEY: ${{ secrets.ASFT_AUTH_KEY }}
-      # Scanner timeout (minutes). Increase for first-time ODC DB warmup/sync.
-      ASFT_SCANNER_TIMEOUT_MIN: ${{ vars.ASFT_SCANNER_TIMEOUT_MIN || '90' }}
+      # Semgrep timeout (minutes).
+      ASFT_SCANNER_TIMEOUT_MIN: ${{ vars.ASFT_SCANNER_TIMEOUT_MIN || '60' }}
+      # ODC timeout (minutes). Higher default to tolerate cold cache and NVD sync latency.
+      ASFT_ODC_TIMEOUT_MIN: ${{ vars.ASFT_ODC_TIMEOUT_MIN || '150' }}
       # Optional quality gate toggle for this security pipeline.
       # Keep false to avoid blocking SAST/SCA runs on unrelated lint debt.
       ASFT_ENFORCE_LINT: ${{ vars.ASFT_ENFORCE_LINT || 'false' }}
@@ -55,9 +57,9 @@ jobs:
           path: ${{ env.ASFT_SCANNER_DIR }}/.odc-data
           # Run 2+ restores the newest matching cache via restore-keys.
           # Run 1 will miss, then a later save step persists the first cache.
-          key: odc-${{ runner.os }}-dc12_1_9-${{ github.run_id }}
+          key: odc-${{ runner.os }}-dc12_1_10-${{ github.run_id }}
           restore-keys: |
-            odc-${{ runner.os }}-dc12_1_9-
+            odc-${{ runner.os }}-dc12_1_10-
 
       - name: Log ODC cache restore status
         shell: bash
@@ -130,32 +132,58 @@ jobs:
             echo "[WARN] HTTPS pre-flight check failed with exit code ${curl_status}; continuing."
           fi
 
-      - name: Run SAST + SCA command
-        id: sast
+      - name: Run SAST (Semgrep) command
+        id: semgrep
         shell: bash
         continue-on-error: false
         run: |
           set -euxo pipefail
           cd "${ASFT_SCANNER_DIR}"
-          echo "[INFO] Starting scanner command in ${ASFT_SCANNER_DIR}"
-          echo "[INFO] Using command timeout: ${ASFT_SCANNER_TIMEOUT_MIN}m"
+          echo "[INFO] Starting Semgrep command in ${ASFT_SCANNER_DIR}"
+          echo "[INFO] Semgrep timeout: ${ASFT_SCANNER_TIMEOUT_MIN}m"
           set +e
           if ! command -v sudo >/dev/null 2>&1; then
             echo "[ERROR] sudo is required in this workflow to run Docker-backed scanner command."
             echo "[ERROR] This pipeline expects GitHub-hosted Ubuntu runner behavior with sudo available."
             exit 1
           fi
-          timeout "${ASFT_SCANNER_TIMEOUT_MIN}m" sudo -E python3 sast_scan.py "${GITHUB_WORKSPACE}" --with-odc 2>&1 | tee "${ASFT_LOG_DIR}/sast_sca.log"
+          timeout "${ASFT_SCANNER_TIMEOUT_MIN}m" sudo -E python3 sast_scan.py "${GITHUB_WORKSPACE}" --semgrep-only 2>&1 | tee "${ASFT_LOG_DIR}/sast.log"
           scanner_status=${PIPESTATUS[0]}
           set -e
-          echo "[INFO] scanner exit code=${scanner_status}"
+          echo "[INFO] Semgrep scanner exit code=${scanner_status}"
           if [[ "${scanner_status}" -ne 0 ]]; then
-            echo "[ERROR] scanner command failed; printing diagnostics"
+            echo "[ERROR] Semgrep scanner command failed; printing diagnostics"
             ls -la "${ASFT_SCANNER_DIR}" || true
-            tail -n 300 "${ASFT_LOG_DIR}/sast_sca.log" || true
+            tail -n 300 "${ASFT_LOG_DIR}/sast.log" || true
             exit "${scanner_status}"
           fi
           cp -f "${ASFT_SCANNER_DIR}/semgrep-report.json" "${ASFT_OUTPUT_DIR}/" 2>/dev/null || true
+
+      - name: Run SCA (OWASP Dependency-Check) command
+        id: odc
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -euxo pipefail
+          cd "${ASFT_SCANNER_DIR}"
+          echo "[INFO] Starting ODC command in ${ASFT_SCANNER_DIR}"
+          echo "[INFO] ODC timeout: ${ASFT_ODC_TIMEOUT_MIN}m"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            export ASFT_ODC_NOUPDATE=true
+            echo "[INFO] pull_request event detected: running ODC with --noupdate."
+          else
+            unset ASFT_ODC_NOUPDATE || true
+          fi
+          set +e
+          timeout "${ASFT_ODC_TIMEOUT_MIN}m" sudo -E python3 sast_scan.py "${GITHUB_WORKSPACE}" --with-odc --odc-only 2>&1 | tee "${ASFT_LOG_DIR}/sca_odc.log"
+          scanner_status=${PIPESTATUS[0]}
+          set -e
+          echo "[INFO] ODC scanner exit code=${scanner_status}"
+          if [[ "${scanner_status}" -ne 0 ]]; then
+            echo "[WARN] ODC scanner command failed; continuing pipeline and keeping Semgrep results."
+            ls -la "${ASFT_SCANNER_DIR}" || true
+            tail -n 300 "${ASFT_LOG_DIR}/sca_odc.log" || true
+          fi
           cp -f "${ASFT_SCANNER_DIR}/dependency-check-report.json" "${ASFT_OUTPUT_DIR}/" 2>/dev/null || true
 
       - name: Check payload POST limit breach (non-blocking)
@@ -164,8 +192,8 @@ jobs:
         run: |
           set -euxo pipefail
           echo "[INFO] Payload POST limit: ${ASFT_PAYLOAD_MAX_POST_BYTES} bytes"
-          if grep -q "Skipping POST to ASFT server" "${ASFT_LOG_DIR}/sast_sca.log"; then
-            matched_line="$(grep "Skipping POST to ASFT server" "${ASFT_LOG_DIR}/sast_sca.log" | tail -n 1)"
+          matched_line="$(grep -h "Skipping POST to ASFT server" "${ASFT_LOG_DIR}/sast.log" "${ASFT_LOG_DIR}/sca_odc.log" 2>/dev/null | tail -n 1 || true)"
+          if [[ -n "${matched_line}" ]]; then
             echo "::error title=ASFT payload POST skipped::${matched_line}"
             echo "[ERROR] ${matched_line}"
             echo "[WARN] Payload upload was skipped; workflow continues."
@@ -178,7 +206,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.ASFT_SCANNER_DIR }}/.odc-data
-          key: odc-${{ runner.os }}-dc12_1_9-${{ github.run_id }}
+          key: odc-${{ runner.os }}-dc12_1_10-${{ github.run_id }}
 
       - name: Start api-server and dependencies
         shell: bash

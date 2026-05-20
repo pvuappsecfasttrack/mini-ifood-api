@@ -16,7 +16,7 @@ import requests
 
 ENDPOINT_PATH = "/api/java-agent/create-vulnerabilities"
 SEMGREP_IMAGE = "returntocorp/semgrep"
-ODC_IMAGE = "owasp/dependency-check:12.1.9"
+ODC_IMAGE = "owasp/dependency-check:12.1.10"
 OUTPUT_FILENAME = "semgrep-report.json"
 ODC_OUTPUT_FILENAME = "dependency-check-report.json"
 DEFAULT_EXCLUDES = ["node_modules"]
@@ -106,6 +106,8 @@ def run_dependency_check_docker(project_dir: Path, script_dir: Path):
     if nvd_api_key:
         cmd.extend(["-e", f"NVD_API_KEY={nvd_api_key}"])
     cmd += [ODC_IMAGE, "--scan", "/src", "--format", "JSON", "--out", "/report", "--project", "asft-odc"]
+    if os.environ.get("ASFT_ODC_NOUPDATE", "").lower() in ("1", "true", "yes"):
+        cmd.append("--noupdate")
     log(f"Executing ODC container command: {' '.join(cmd)}")
     code, out, err = shell(cmd, check=False, stream=True)
     if code != 0:
@@ -191,6 +193,8 @@ def main():
     parser = argparse.ArgumentParser(description="Scan Semgrep and optional ODC, then POST results to ASFT server.")
     parser.add_argument("project_dir")
     parser.add_argument("--with-odc", action="store_true")
+    parser.add_argument("--semgrep-only", action="store_true")
+    parser.add_argument("--odc-only", action="store_true")
     parser.add_argument("--exclude", action="append")
     args = parser.parse_args()
 
@@ -208,12 +212,18 @@ def main():
     log(f"[DEBUG] ASFT controller URL: {controller_base_url}")
     log(f"[DEBUG] SAST/SCA upload base URL: {upload_base_url}")
 
-    log("Running Semgrep in Docker...")
-    semgrep_out = run_semgrep_docker(project_dir, args.exclude, script_dir)
-    semgrep_json = json.loads(semgrep_out.read_text(encoding="utf-8"))
-    vulns = build_vulnerabilities(semgrep_json, scan_version, project_name)
+    if args.semgrep_only and args.odc_only:
+        raise ValueError("Cannot use --semgrep-only and --odc-only together.")
 
-    if args.with_odc:
+    vulns = []
+    semgrep_out = script_dir / OUTPUT_FILENAME
+    if not args.odc_only:
+        log("Running Semgrep in Docker...")
+        semgrep_out = run_semgrep_docker(project_dir, args.exclude, script_dir)
+        semgrep_json = json.loads(semgrep_out.read_text(encoding="utf-8"))
+        vulns.extend(build_vulnerabilities(semgrep_json, scan_version, project_name))
+
+    if args.with_odc and not args.semgrep_only:
         log("Running OWASP Dependency-Check in Docker...")
         odc_out = run_dependency_check_docker(project_dir, script_dir)
         if odc_out is not None:

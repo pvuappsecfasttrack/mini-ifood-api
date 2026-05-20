@@ -16,7 +16,7 @@ import requests
 
 ENDPOINT_PATH = "/api/java-agent/create-vulnerabilities"
 SEMGREP_IMAGE = "returntocorp/semgrep"
-ODC_IMAGE = "owasp/dependency-check:12.1.10"
+ODC_IMAGE = "owasp/dependency-check:12.2.2"
 OUTPUT_FILENAME = "semgrep-report.json"
 ODC_OUTPUT_FILENAME = "dependency-check-report.json"
 DEFAULT_EXCLUDES = ["node_modules"]

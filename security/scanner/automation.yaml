@@ -60,11 +60,10 @@ jobs:
       deleteAllRules: false
     rules:
       - description: "Auth Bearer"
-        enabled: true
         matchType: "REQ_HEADER"
         matchRegex: false
         matchString: "Authorization"
-        replacement: "Bearer __ZAP_AUTH_TOKEN__"
+        replacementString: "Bearer __ZAP_AUTH_TOKEN__"
 
   - type: openapi
     parameters:

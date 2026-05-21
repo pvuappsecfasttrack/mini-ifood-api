@@ -23,7 +23,7 @@ DEFAULT_EXCLUDES = ["node_modules"]
 SEVERITY_ENUM = {"Critical": 1, "High": 2, "Medium": 3, "Low": 4}
 TOOL_ID = 2
 ODC_TOOL_ID = 3
-DEFAULT_PAYLOAD_MAX_POST_BYTES = 950000
+DEFAULT_PAYLOAD_MAX_POST_BYTES = 10 * 1024 * 1024
 
 
 def log(msg: str):

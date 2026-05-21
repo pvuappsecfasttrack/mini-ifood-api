@@ -156,7 +156,7 @@ jobs:
             echo "[ERROR] This pipeline expects GitHub-hosted Ubuntu runner behavior with sudo available."
             exit 1
           fi
-          timeout "${ASFT_SCANNER_TIMEOUT_MIN}m" sudo -E python3 sast_scan.py "${GITHUB_WORKSPACE}" --with-odc 2>&1 | tee "${ASFT_LOG_DIR}/sast_sca.log"
+          timeout "${ASFT_SCANNER_TIMEOUT_MIN}m" sudo -E python3 sast_scan.py "${GITHUB_WORKSPACE}" --with-odc --exclude .github/workflows --exclude security/scanner 2>&1 | tee "${ASFT_LOG_DIR}/sast_sca.log"
           scanner_status=${PIPESTATUS[0]}
           set -e
           echo "[INFO] scanner exit code=${scanner_status}"

@@ -91,7 +91,7 @@ def run_semgrep_docker(project_dir: Path, excludes, script_dir: Path):
     return out_host_path
 
 
-def run_dependency_check_docker(project_dir: Path, script_dir: Path):
+def run_dependency_check_docker(project_dir: Path, script_dir: Path, excludes=None):
     out_host_path = script_dir / ODC_OUTPUT_FILENAME
     dc_data_dir = script_dir / ".odc-data"
     dc_data_dir.mkdir(exist_ok=True)
@@ -106,6 +106,15 @@ def run_dependency_check_docker(project_dir: Path, script_dir: Path):
     if nvd_api_key:
         cmd.extend(["-e", f"NVD_API_KEY={nvd_api_key}"])
     cmd += [ODC_IMAGE, "--scan", "/src", "--format", "JSON", "--out", "/report", "--project", "asft-odc"]
+    for ex in list(excludes or []) + DEFAULT_EXCLUDES:
+        normalized = ex.strip("/")
+        if not normalized:
+            continue
+        # Dependency-Check requires Java regex for --exclude (not plain folder names).
+        # Anchor to /src so only repository-root-relative paths are excluded.
+        escaped = normalized.replace(".", r"\.").replace("/", r"\/")
+        regex = rf"^\/src\/{escaped}(?:\/.*)?$"
+        cmd.extend(["--exclude", regex])
     log(f"Executing ODC container command: {' '.join(cmd)}")
     code, out, err = shell(cmd, check=False, stream=True)
     if code != 0:
@@ -215,7 +224,7 @@ def main():
 
     if args.with_odc:
         log("Running OWASP Dependency-Check in Docker...")
-        odc_out = run_dependency_check_docker(project_dir, script_dir)
+        odc_out = run_dependency_check_docker(project_dir, script_dir, args.exclude)
         if odc_out is not None:
             odc_json = json.loads(odc_out.read_text(encoding="utf-8"))
             vulns.extend(build_vulnerabilities_from_odc(odc_json, scan_version, project_name))

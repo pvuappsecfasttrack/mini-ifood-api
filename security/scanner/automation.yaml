@@ -82,7 +82,7 @@ jobs:
 
   - type: report
     parameters:
-      template: "traditional-html-plus"
+      template: "traditional-html"
       theme: "light"
       reportDir: "/zap/wrk"
       reportFile: "dast-scanning-report.html"

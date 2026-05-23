@@ -1,0 +1,112 @@
+env:
+  contexts:
+    - name: "mini-food-apis"
+      urls:
+        - "http://127.0.0.1:8080/api/products"
+        - "http://127.0.0.1:8080/api/products/10"
+        - "http://127.0.0.1:8080/api/products?pageable="
+        - "http://127.0.0.1:8080/api/users"
+        - "http://127.0.0.1:8080/api/users/10"
+        - "http://127.0.0.1:8080/api/v1/orders"
+        - "http://127.0.0.1:8080/api/v1/orders/10"
+        - "http://127.0.0.1:8080/api/v1/orders/10/status?status=PENDING"
+        - "http://127.0.0.1:8080/api/v1/orders/user"
+        - "http://127.0.0.1:8080/api/v1/orders/user/my-orders?page=0&size=10"
+        - "http://127.0.0.1:8080/api/v1/orders?status=PENDING&page=0&size=10"
+        - "http://127.0.0.1:8080/api/v1/payments/mock"
+      includePaths:
+        - "http://127.0.0.1:8080/api/products.*"
+        - "http://127.0.0.1:8080/api/products/10.*"
+        - "http://127.0.0.1:8080/api/products?pageable=.*"
+        - "http://127.0.0.1:8080/api/users.*"
+        - "http://127.0.0.1:8080/api/users/10.*"
+        - "http://127.0.0.1:8080/api/v1/orders.*"
+        - "http://127.0.0.1:8080/api/v1/orders/10.*"
+        - "http://127.0.0.1:8080/api/v1/orders/10/status?status=PENDING.*"
+        - "http://127.0.0.1:8080/api/v1/orders/user.*"
+        - "http://127.0.0.1:8080/api/v1/orders/user/my-orders?page=0&size=10.*"
+        - "http://127.0.0.1:8080/api/v1/orders?status=PENDING&page=0&size=10.*"
+        - "http://127.0.0.1:8080/api/v1/payments/mock.*"
+        - "http://127.0.0.1:8080/api/v1/orders/[^/?]+/status"
+        - "http://127.0.0.1:8080/api/users/[^/?]+"
+        - "http://127.0.0.1:8080/api/products/[^/?]+"
+        - "\\Qhttp://127.0.0.1:8080/api/v1/payments/mock\\E"
+        - "\\Qhttp://127.0.0.1:8080/api/v1/orders\\E"
+        - "\\Qhttp://127.0.0.1:8080/api/users\\E"
+        - "\\Qhttp://127.0.0.1:8080/api/products\\E"
+        - "http://127.0.0.1:8080/api/v1/orders/[^/?]+"
+        - "\\Qhttp://127.0.0.1:8080/api/v1/orders/user/my-orders\\E"
+      excludePaths:
+        - "\\Qhttp://127.0.0.1:8080/api/auth/login\\E"
+        - "\\Qhttp://127.0.0.1:8080/api/auth/register\\E"
+      authentication:
+        verification:
+          method: response
+          pollFrequency: 60
+          pollUnits: requests
+          pollUrl: ""
+          pollPostData: ""
+      sessionManagement:
+        method: cookie
+      technology: {}
+      structure: {}
+  parameters:
+    failOnError: false
+    continueOnFailure: true
+
+jobs:
+  - type: replacer
+    parameters:
+      deleteAllRules: false
+    rules:
+      - description: "Auth Bearer"
+        matchType: "REQ_HEADER"
+        matchRegex: false
+        matchString: "Authorization"
+        replacementString: "Bearer __ZAP_AUTH_TOKEN__"
+
+  - type: openapi
+    parameters:
+      apiUrl: "http://127.0.0.1:8080/v3/api-docs"
+      context: "mini-food-apis"
+      targetUrl: "http://127.0.0.1:8080"
+
+  - type: activeScan
+    parameters:
+      context: "mini-food-apis"
+      maxRuleDurationInMins: 2
+      maxScanDurationInMins: 20
+      addQueryParam: true
+    policyDefinition:
+      defaultStrength: null
+
+  - type: report
+    parameters:
+      template: "traditional-html"
+      theme: "light"
+      reportDir: "/zap/wrk"
+      reportFile: "dast-scanning-report.html"
+      reportTitle: "DAST Scanning Report"
+      displayReport: false
+    risks:
+      - low
+      - medium
+      - high
+    confidences:
+      - low
+      - medium
+      - high
+      - confirmed
+    sections:
+      - passingrules
+      - insights
+      - instancecount
+      - sequencedetails
+      - alertdetails
+      - alertcount
+      - params
+      - chart
+      - statistics
+
+  - type: exitStatus
+    parameters: {}

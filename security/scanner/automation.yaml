@@ -98,15 +98,11 @@ jobs:
       - high
       - confirmed
     sections:
-      - passingrules
+      - alertcount
       - insights
       - instancecount
-      - sequencedetails
       - alertdetails
-      - alertcount
-      - params
-      - chart
-      - statistics
+      - sequencedetails
 
   - type: exitStatus
     parameters: {}
